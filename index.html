@@ -4,494 +4,473 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Blue Builder Helper — All‑in‑One</title>
-
-<!-- Model Viewer for 3D previews -->
-<script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
-
+<title>Blue Orb Backyard Planner (Prototype)</title>
 <style>
   :root{
-    --bg:#081028;
-    --grid:#0d2e5f;
-    --grid2:#0b2142;
-    --line:#67e8f9;         /* cyan lines */
-    --fill-soft: rgba(103,232,249,0.08);
-    --hatch: rgba(103,232,249,0.18);
-    --dot: rgba(103,232,249,0.9);
-    --accent:#3b82f6;       /* orb base */
-    --accent2:#60a5fa;
-    --text:#e9f2ff;
-    --muted:#b8c8ff;
+    --bg:#0b1020;
+    --panel:#12192b;
+    --panel-2:#0e1526;
+    --text:#e7ecff;
+    --muted:#aac1ff;
+    --accent:#3b82f6;       /* Primary blue */
+    --accent-2:#60a5fa;
+    --accent-3:#93c5fd;
+    --good:#22c55e;
+    --warn:#f59e0b;
   }
   *{box-sizing:border-box}
-  html, body { height:100% }
   body{
-    margin:0; font:16px/1.4 Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial;
-    color:var(--text); background:var(--bg); overflow:hidden;
-    user-select:none;
+    margin:0; font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
+    color:var(--text);
+    background: radial-gradient(1200px 600px at 70% -10%, #1b2a5a55, transparent),
+                linear-gradient(180deg, #070b14, var(--bg));
+    min-height:100svh; display:flex; flex-direction:column; gap:16px;
+  }
+  header{
+    padding:16px 20px; display:flex; align-items:center; gap:12px;
+    background:linear-gradient(180deg, #0c1429cc, #0c142980), url('data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==');
+    border-bottom:1px solid #1e2a4c;
+    position:sticky; top:0; backdrop-filter:blur(8px); z-index:5;
+  }
+  header h1{margin:0; font-weight:700; font-size:18px; letter-spacing:.2px}
+  header .pill{
+    padding:4px 10px; border:1px solid #1e2a4c; border-radius:999px; color:var(--muted);
+    background: linear-gradient(180deg, #0d1938, #0a1329);
   }
 
-  /* Photo underlay (optional) */
-  .photo-underlay{
-    position:absolute; inset:0; object-fit:cover;
-    opacity:.14; filter:saturate(0) contrast(1.1) brightness(.9);
-    pointer-events:none; z-index:1;
+  /* Stage with Orb */
+  .stage{
+    position:relative; padding:30px 20px 10px; display:grid; gap:18px;
+    grid-template-columns: minmax(280px, 360px) 1fr;
   }
+  @media (max-width:900px){ .stage{ grid-template-columns: 1fr; } }
 
-  /* Orb */
+  .orb-wrap{
+    position:relative; display:flex; align-items:center; justify-content:center;
+    padding:16px; height:360px; background:linear-gradient(180deg, #0a1329, #0a1230);
+    border:1px solid #1e2a4c; border-radius:16px; overflow:hidden;
+  }
   .orb{
-    --size: 180px;
-    position:absolute; left:50%; top:58%; transform:translate(-50%,-50%);
-    width:var(--size); height:var(--size); border-radius:50%;
+    width:140px; height:140px; border-radius:50%;
     background:
-      radial-gradient(65% 65% at 35% 30%, #ffffffaa, transparent 45%),
-      radial-gradient(100% 100% at 50% 50%, var(--accent2), var(--accent));
-    box-shadow: 0 10px 40px #3b82f666, inset 0 0 120px #60a5fa44;
-    display:flex; align-items:center; justify-content:center;
-    animation:bounce 2s ease-in-out infinite;
-    z-index:8;
+      radial-gradient(60% 60% at 35% 35%, #ffffffaa, transparent 45%),
+      radial-gradient(100% 100% at 50% 50%, var(--accent-2), var(--accent));
+    box-shadow:
+      0 0 24px 8px #3b82f644,
+      0 0 64px 24px #60a5fa33 inset,
+      0 0 200px 40px #3b82f61f;
+    filter: drop-shadow(0 8px 24px #3b82f666);
+    animation: float 4.5s ease-in-out infinite;
+    position:absolute;
   }
-  .orb.dock{
-    animation:none;
-    transition: transform .9s ease, top .9s ease, left .9s ease, width .6s ease, height .6s ease;
-    top:70px; left:50%; transform:translate(-50%,0); width:120px; height:120px;
+  .orb.rise{
+    animation: rise 2.4s ease forwards, glow 4s ease-in-out infinite 2.4s;
   }
-  @keyframes bounce {
-    0%,100% { transform:translate(-50%,-50%) }
-    50% { transform:translate(-50%,-60%) }
+  @keyframes float{
+    0%,100%{ transform: translateY(0) }
+    50%{ transform: translateY(-12px) }
   }
-  /* Face */
-  .eye{ width:38px; height:38px; background:#fff; border-radius:50%; position:absolute; overflow:hidden }
-  .eye .pupil{ width:18px; height:18px; background:#000; border-radius:50%; position:absolute; top:10px; left:10px; transition: transform .05s linear }
-  .eyeL{ left:44px; top:56px }
-  .eyeR{ right:44px; top:56px }
-  .mouth{ position:absolute; bottom:42px; left:50%; transform:translateX(-50%); width:56px; height:18px; border-radius:0 0 40px 40px/0 0 18px 18px; background:#001a4d66; border:2px solid #001a4d99; border-top:none }
+  @keyframes rise{
+    0%{ transform: translate(-50%, -20%); left:50%; top:50%; }
+    100%{ transform: translate(-50%, -260px); left:50%; top:0; }
+  }
+  @keyframes glow{
+    0%,100%{ box-shadow: 0 0 28px 10px #60a5fa66, 0 0 80px 12px #60a5fa44 inset }
+    50%{ box-shadow: 0 0 42px 16px #93c5fd88, 0 0 120px 20px #93c5fd66 inset }
+  }
 
-  /* Greeting + main controls */
-  .greet{
-    position:absolute; top:calc(58% + 130px); left:50%; transform:translateX(-50%);
-    color:var(--text); text-align:center; font-size:22px; opacity:0; transition:opacity .8s; z-index:7;
-  }
-  .greet.show{ opacity:1 }
-  .controls{
-    position:absolute; left:50%; top:calc(58% + 200px); transform:translateX(-50%);
-    display:flex; gap:12px; flex-wrap:wrap; justify-content:center; z-index:7;
-  }
-  .btn{ appearance:none; cursor:pointer; border:1px solid #2a4ea0; color:#e5eeff; background:#0d1a3a; padding:10px 14px; border-radius:10px; font-weight:600 }
-  .btn.primary{ background:linear-gradient(180deg,#1d4ed8,#1e40af); border-color:#1e3a8a }
-
-  /* Panels */
   .panel{
-    position:absolute; z-index:9; background:#0b1533cc; border:1px solid #1e2a4c; border-radius:12px; padding:12px; backdrop-filter: blur(6px);
+    background:linear-gradient(180deg, var(--panel), var(--panel-2));
+    border:1px solid #1e2a4c; border-radius:16px; padding:14px;
   }
-  .panel h3{ margin:0 0 8px 0; font-size:16px }
-  .small{ font-size:12px; color:#a9bdff }
   .row{ display:flex; gap:8px; flex-wrap:wrap }
-  input, select{ background:#0b1430; color:var(--text); border:1px solid #223a6b; border-radius:10px; padding:8px 10px; width:100% }
+  .btn{
+    appearance:none; border:1px solid #24407a; color:#dbe8ff; background:#0d1a3a;
+    padding:10px 14px; border-radius:10px; cursor:pointer;
+    transition: .15s background, .15s border, transform .06s;
+  }
+  .btn:hover{ background:#122458; border-color:#3158a6 }
+  .btn:active{ transform: translateY(1px) }
+  .btn.primary{ background:linear-gradient(180deg, #1d4ed8, #1e40af); border-color:#1e3a8a }
+  .btn.ghost{ background:transparent }
+  input, select, textarea{
+    background:#0b1430; color:var(--text); border:1px solid #223a6b; border-radius:10px;
+    padding:10px 12px; width:100%;
+  }
   label{ font-size:13px; color:var(--muted) }
 
-  /* Settings panel */
-  #settings{ right:14px; top:14px; width:360px; max-width:94vw; display:none }
+  /* Chat */
+  .chat{ height:340px; overflow:auto; display:flex; flex-direction:column; gap:10px; padding-right:4px }
+  .msg{ max-width:86%; padding:10px 12px; border-radius:12px; line-height:1.35 }
+  .msg.ai{ background:#0b1a3a; border:1px solid #2a4ea0; align-self:flex-start }
+  .msg.user{ background:#0f1d38; border:1px solid #27406e; align-self:flex-end }
+  .tiny{ font-size:12px; color:#b6c8ff }
 
-  /* Library panel (35 items) */
-  #library{ right:14px; bottom:14px; width:380px; max-width:95vw; display:none; max-height:60vh; overflow:auto }
-  .lib-group{ margin-bottom:10px }
-  .lib-title{ font-size:13px; color:#9bb5ff; margin:8px 0 6px 0 }
-  .lib-grid{ display:grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap:8px }
-  .lib-btn{ background:#0a1430; border:1px solid #203a72; border-radius:10px; padding:8px; color:#dbe8ff; font-size:13px; cursor:pointer; text-align:center }
-  .lib-btn:hover{ background:#122356; border-color:#2d55a9 }
+  /* Ideas */
+  .ideas{ display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:12px }
+  .card{ background:#0d1731; border:1px solid #1f325c; border-radius:12px; padding:12px }
+  .card h4{ margin:0 0 8px 0 }
+  .tag{ display:inline-block; margin:2px 6px 2px 0; font-size:12px; padding:4px 8px; border-radius:999px; border:1px solid #2b4380; color:#b9ccff; background:#0a142f }
 
-  /* Blueprint layer */
-  .blueprint{
-    position:absolute; inset:0; z-index:4; display:none;
-    background:
-      linear-gradient(90deg,var(--grid2) 1px, transparent 1px) left top / 40px 40px repeat,
-      linear-gradient(0deg ,var(--grid2) 1px, transparent 1px) left top / 40px 40px repeat,
-      linear-gradient(90deg,var(--grid) 1px, transparent 1px) left top / 200px 200px repeat,
-      linear-gradient(0deg ,var(--grid) 1px, transparent 1px) left top / 200px 200px repeat,
-      linear-gradient(180deg, #071331, #091a3d);
-  }
-  svg{ width:100%; height:100% }
-
-  /* Item styles */
-  .item .shape{ stroke: var(--line); stroke-width:2; fill: var(--fill-soft) }
-  .item .shape.dashed{ stroke-dasharray: 6 6; fill:none }
-  .item text{ fill: var(--line); font-size:12px }
-  .selected .shape{ filter: drop-shadow(0 0 8px rgba(103,232,249,.9)); stroke-width:3 }
-  .fall{ opacity:0; transform:translateY(-180px); animation:fallIn .8s forwards }
-  @keyframes fallIn{ to{ opacity:1; transform:translateY(0) } }
-
-  /* Toolbar */
-  #toolbar{ position:absolute; left:14px; top:14px; z-index:9; display:none; gap:8px }
-
-  /* 3D Modal */
-  #modal{
-    position:fixed; inset:0; background:rgba(3,6,20,.7); display:none; align-items:center; justify-content:center; z-index:20;
-  }
-  #modal .box{
-    width:min(900px,90vw); height:min(560px,80vh); background:#091433; border:1px solid #1d2c59; border-radius:12px; padding:8px; display:flex; flex-direction:column; gap:8px;
-  }
-  #modal .top{ display:flex; justify-content:space-between; align-items:center; padding:4px 8px }
-  #modal .top h4{ margin:0 }
-  model-viewer{ width:100%; height:100%; background:#0a1230; border-radius:8px }
+  /* Preview */
+  .preview{ width:100%; aspect-ratio: 4/3; object-fit:cover; border-radius:12px; border:1px solid #1f325c; background:#091128; }
 </style>
 </head>
 <body>
-  <img id="photo" class="photo-underlay" alt="" />
 
-  <!-- ORB -->
-  <div id="orb" class="orb" aria-live="polite">
-    <div class="eye eyeL"><div class="pupil"></div></div>
-    <div class="eye eyeR"><div class="pupil"></div></div>
-    <div class="mouth"></div>
-  </div>
+<header>
+  <div style="width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px #60a5fa"></div>
+  <h1>Blue Orb Backyard Planner</h1>
+  <div class="pill">Prototype • Offline</div>
+</header>
 
-  <!-- Greeting + primary controls -->
-  <div id="greet" class="greet">Hi! I’m your builder helper.<br/>Upload your backyard and I’ll sketch a plan.</div>
-  <div class="controls" id="controls">
-    <label class="btn">
-      <input id="file" type="file" accept="image/*" hidden />
-      🔌 Upload Backyard Photo
-    </label>
-    <button id="openSettings" class="btn">Settings</button>
-    <button id="openLibrary" class="btn">Item Library</button>
-    <button id="generate" class="btn primary">Generate Blueprint</button>
-  </div>
-
-  <!-- Settings -->
-  <div id="settings" class="panel">
-    <h3>Backyard Settings</h3>
-    <div class="row">
-      <div style="flex:1">
-        <label>Length (ft)</label>
-        <input id="lenFt" type="number" min="10" max="200" value="40" />
+<main class="stage">
+  <!-- Left: Orb, USB Upload, Controls -->
+  <section class="orb-wrap panel">
+    <div id="orb" class="orb" style="left:50%; top:50%; transform:translate(-50%,-20%)"></div>
+    <div style="position:absolute;bottom:12px;left:12px;right:12px;">
+      <div class="row">
+        <label class="btn">
+          <input id="usb" type="file" accept="image/*,.json" hidden />
+          🔌 Connect “USB” (photo or .json)
+        </label>
+        <button id="analyze" class="btn primary">Analyze</button>
+        <button id="reset" class="btn ghost">Reset</button>
       </div>
-      <div style="flex:1">
-        <label>Width (ft)</label>
-        <input id="widFt" type="number" min="10" max="200" value="28" />
+      <div class="tiny" style="margin-top:6px">
+        Tip: Upload a backyard photo (JPG/PNG) or a JSON file like:
+        <code>{"length_ft":40,"width_ft":28,"budget":"medium"}</code>
       </div>
     </div>
-    <div class="row" style="margin-top:6px">
-      <div style="flex:1">
-        <label>Vibe</label>
-        <select id="vibe">
-          <option value="auto">Auto</option>
-          <option value="zen">Zen</option>
-          <option value="family">Family</option>
-          <option value="entertain">Entertaining</option>
-          <option value="modern">Modern</option>
+  </section>
+
+  <!-- Right: Chat + Preview -->
+  <section class="panel" style="display:grid; grid-template-columns: 1fr 280px; gap:12px;">
+    <div style="display:flex; flex-direction:column; gap:10px; min-width:0">
+      <div id="chat" class="chat panel" style="padding:10px; background:#0a142f"></div>
+      <form id="chatForm" class="row" autocomplete="off">
+        <input id="chatInput" placeholder="Type your answer…" />
+        <button class="btn primary" type="submit">Send</button>
+      </form>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:10px">
+      <img id="preview" class="preview" alt="Backyard preview" />
+      <div>
+        <label>Style preference</label>
+        <select id="style">
+          <option value="">Let the Orb decide</option>
+          <option>modern</option>
+          <option>rustic</option>
+          <option>zen</option>
+          <option>family</option>
+          <option>minimal</option>
         </select>
       </div>
-      <div style="flex:1">
-        <label>Budget</label>
-        <select id="budget">
-          <option value="auto">Auto</option>
-          <option value="low">Low</option>
-          <option value="medium" selected>Medium</option>
-          <option value="high">High</option>
-        </select>
-      </div>
-    </div>
-    <div class="small" style="margin-top:8px">Tip: You can still add or move items anytime from the Item Library.</div>
-  </div>
-
-  <!-- Item Library (35 items) -->
-  <div id="library" class="panel">
-    <h3>Item Library</h3>
-    <!-- Structural -->
-    <div class="lib-group">
-      <div class="lib-title">Structural</div>
-      <div class="lib-grid" id="lib-struct"></div>
-    </div>
-    <!-- Water -->
-    <div class="lib-group">
-      <div class="lib-title">Water Features</div>
-      <div class="lib-grid" id="lib-water"></div>
-    </div>
-    <!-- Gardens / Nature -->
-    <div class="lib-group">
-      <div class="lib-title">Gardens & Nature</div>
-      <div class="lib-grid" id="lib-garden"></div>
-    </div>
-    <!-- Entertainment -->
-    <div class="lib-group">
-      <div class="lib-title">Entertainment</div>
-      <div class="lib-grid" id="lib-fun"></div>
-    </div>
-    <!-- Paths / Surfaces -->
-    <div class="lib-group">
-      <div class="lib-title">Paths & Surfaces</div>
-      <div class="lib-grid" id="lib-paths"></div>
-    </div>
-    <!-- Lighting -->
-    <div class="lib-group">
-      <div class="lib-title">Lighting</div>
-      <div class="lib-grid" id="lib-light"></div>
-    </div>
-  </div>
-
-  <!-- Blueprint SVG -->
-  <div id="blueprint" class="blueprint">
-    <svg id="bp" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice"></svg>
-  </div>
-
-  <!-- Toolbar -->
-  <div id="toolbar" class="panel" style="display:none; gap:8px">
-    <button id="regen" class="btn">🔁 Regenerate</button>
-    <button id="export" class="btn">⬇️ Export SVG</button>
-    <button id="del" class="btn">🗑️ Delete Selected</button>
-    <button id="previewSel" class="btn primary">👁️ 3D Preview</button>
-  </div>
-
-  <!-- 3D Modal -->
-  <div id="modal">
-    <div class="box">
-      <div class="top">
-        <h4 id="modalTitle">3D Preview</h4>
-        <div>
-          <button class="btn" id="closeModal">Close</button>
+      <div class="row">
+        <div style="flex:1">
+          <label>Budget</label>
+          <select id="budget">
+            <option value="">—</option>
+            <option>low</option>
+            <option>medium</option>
+            <option>high</option>
+          </select>
+        </div>
+        <div style="flex:1">
+          <label>Skill</label>
+          <select id="skill">
+            <option value="">—</option>
+            <option>beginner</option>
+            <option>intermediate</option>
+            <option>advanced</option>
+          </select>
         </div>
       </div>
-      <div style="flex:1; min-height:300px">
-        <model-viewer id="mv" camera-controls auto-rotate ar ar-modes="webxr scene-viewer quick-look" exposure="0.9" shadow-intensity="0.2" alt="3D Preview"></model-viewer>
-      </div>
     </div>
-  </div>
+  </section>
+
+  <!-- Suggestions -->
+  <section id="ideasWrap" class="panel" style="display:none">
+    <h3 style="margin:4px 0 12px 0">Backyard Concepts</h3>
+    <div id="ideas" class="ideas"></div>
+  </section>
+</main>
 
 <script>
-/* ===============================
-   ORB (eyes + greet + upload)
-=================================*/
+/* -----------------------------
+   Tiny “backend” in the browser
+--------------------------------*/
 const orb = document.getElementById('orb');
-const greet = document.getElementById('greet');
-const photo = document.getElementById('photo');
-const fileInput = document.getElementById('file');
+const usb = document.getElementById('usb');
+const analyzeBtn = document.getElementById('analyze');
+const resetBtn = document.getElementById('reset');
+const preview = document.getElementById('preview');
+const chat = document.getElementById('chat');
+const chatForm = document.getElementById('chatForm');
+const chatInput = document.getElementById('chatInput');
+const styleEl = document.getElementById('style');
+const budgetEl = document.getElementById('budget');
+const skillEl = document.getElementById('skill');
+const ideasWrap = document.getElementById('ideasWrap');
+const ideasDiv = document.getElementById('ideas');
 
-setTimeout(()=>greet.classList.add('show'), 600);
+let imageBitmap = null;
+let metaFromUSB = {};
+let imageStats = {avg:[0,0,0], brightness:0, isBright:false, dominant:'#6aa8ff'};
 
-document.addEventListener('mousemove',(e)=>{
-  document.querySelectorAll('.eye').forEach(eye=>{
-    const rect = eye.getBoundingClientRect();
-    const cx = rect.left + rect.width/2;
-    const cy = rect.top + rect.height/2;
-    const angle = Math.atan2(e.clientY - cy, e.clientX - cx);
-    const dx = Math.cos(angle)*7, dy = Math.sin(angle)*7;
-    eye.querySelector('.pupil').style.transform = `translate(${dx}px, ${dy}px)`;
-  });
-});
+const state = {
+  step: 0,
+  answers: {},
+  questions: [
+    {key:'area', text:'What is your backyard size? You can say length × width in feet (e.g., 40x28) or total sq ft.'},
+    {key:'sun', text:'How sunny is it? (full sun / partial / shade)'},
+    {key:'use', text:'What’s the main use? (relaxing, entertaining, kids, pets, gardening, grilling)'},
+    {key:'feature', text:'Any must‑have features? (deck, pergola, fire pit, walkway, planters, lighting, privacy)'}
+  ]
+};
 
-fileInput.addEventListener('change', ()=>{
-  const f = fileInput.files?.[0];
+function say(text){
+  const m = document.createElement('div');
+  m.className='msg ai';
+  m.textContent=text;
+  chat.appendChild(m);
+  chat.scrollTop = chat.scrollHeight;
+}
+function you(text){
+  const m = document.createElement('div');
+  m.className='msg user';
+  m.textContent=text;
+  chat.appendChild(m);
+  chat.scrollTop = chat.scrollHeight;
+}
+function askNext(){
+  if(state.step < state.questions.length){
+    say(state.questions[state.step].text);
+  }else{
+    thinkAndPropose();
+  }
+}
+
+function parseArea(str){
+  if(!str) return null;
+  const m = str.toLowerCase().replace(/\s/g,'');
+  const xy = m.match(/(\d+)\s*[x×]\s*(\d+)/);
+  if(xy) return (+xy[1])*(+xy[2]);
+  const sq = m.match(/(\d+)\s*(sq|sf|ft2|ft²|feet|ft)/);
+  if(sq) return +sq[1];
+  const num = m.match(/^\d+$/);
+  if(num) return +num[0];
+  return null;
+}
+
+/* Simple image analysis: average color + brightness */
+async function analyzeImage(file){
+  try{
+    const bmp = await createImageBitmap(file);
+    imageBitmap = bmp;
+    const canvas = new OffscreenCanvas(bmp.width, bmp.height);
+    const ctx = canvas.getContext('2d');
+    // sample down to speed up
+    const s = Math.max(1, Math.floor(Math.min(bmp.width,bmp.height)/240));
+    const w = Math.floor(bmp.width/s), h = Math.floor(bmp.height/s);
+    canvas.width = w; canvas.height = h;
+    ctx.drawImage(bmp,0,0,w,h);
+    const img = ctx.getImageData(0,0,w,h).data;
+    let r=0,g=0,b=0,c=0, bright=0;
+    for(let i=0;i<img.length;i+=4){
+      r+=img[i]; g+=img[i+1]; b+=img[i+2];
+      const Y = .2126*img[i]+.7152*img[i+1]+.0722*img[i+2];
+      bright+=Y; c++;
+    }
+    r=Math.round(r/c); g=Math.round(g/c); b=Math.round(b/c);
+    const hex = '#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
+    const br = bright/c;
+    imageStats = {avg:[r,g,b], brightness:br, isBright: br>140, dominant:hex};
+  }catch(e){
+    console.warn('Image analysis failed', e);
+  }
+}
+
+usb.addEventListener('change', async (e)=>{
+  const f = e.target.files?.[0];
   if(!f) return;
-  photo.src = URL.createObjectURL(f);
-  greet.innerHTML = "Nice! I’ll sketch ideas on a blueprint.<br/>Click <b>Generate Blueprint</b>.";
+  if(f.type.startsWith('image/')){
+    preview.src = URL.createObjectURL(f);
+    await analyzeImage(f);
+    say('USB connected. I see your photo. Nice space! I’ll ask a few quick questions.');
+  }else if(f.name.endsWith('.json')){
+    try{
+      const txt = await f.text();
+      metaFromUSB = JSON.parse(txt);
+      say('USB connected. I loaded your yard data JSON.');
+      if(metaFromUSB.photoDataUrl){ preview.src = metaFromUSB.photoDataUrl; }
+    }catch(err){
+      say('I could not read the JSON. Make sure it is valid.');
+    }
+  }else{
+    say('Please upload a backyard photo (jpg/png) or a .json file.');
+  }
 });
 
-/* ===============================
-   Panels & basic controls
-=================================*/
-const settings = document.getElementById('settings');
-const library = document.getElementById('library');
-const openSettings = document.getElementById('openSettings');
-const openLibrary = document.getElementById('openLibrary');
-const generateBtn = document.getElementById('generate');
-const blueprint = document.getElementById('blueprint');
-const bp = document.getElementById('bp');
-const toolbar = document.getElementById('toolbar');
+resetBtn.addEventListener('click', ()=>{
+  chat.innerHTML = '';
+  ideasWrap.style.display = 'none';
+  ideasDiv.innerHTML = '';
+  preview.removeAttribute('src');
+  imageBitmap=null; metaFromUSB={}; imageStats={avg:[0,0,0], brightness:0, isBright:false, dominant:'#6aa8ff'};
+  Object.assign(state, {step:0, answers:{}});
+  orb.classList.remove('rise');
+  say('Hi, I am your Blue Orb. Plug in your “USB” and press Analyze to begin.');
+});
 
-openSettings.onclick = ()=> settings.style.display = (settings.style.display==='block'?'none':'block');
-openLibrary.onclick = ()=> library.style.display = (library.style.display==='block'?'none':'block');
+analyzeBtn.addEventListener('click', ()=>{
+  orb.classList.add('rise');
+  ideasWrap.style.display='none';
+  ideasDiv.innerHTML='';
+  // seed defaults from right-side controls or JSON
+  state.answers.budget = budgetEl.value || metaFromUSB.budget || '';
+  state.answers.style = (styleEl.value || metaFromUSB.style || '').toLowerCase();
+  state.answers.skill = (skillEl.value || metaFromUSB.skill || '').toLowerCase();
+  // kickoff Q&A
+  say('Rising to scan your yard…');
+  setTimeout(()=>{
+    say('Scan complete. Let’s personalize your plan.');
+    askNext();
+  }, 1000);
+});
 
-/* ===============================
-   Item catalog (35 items)
-   Each: id, name, cat, drawType, defaults, model
-=================================*/
-const MODEL_PLACEHOLDER = "https://modelviewer.dev/shared-assets/models/Astronaut.glb"; // replace with real models later
+chatForm.addEventListener('submit', (e)=>{
+  e.preventDefault();
+  const val = chatInput.value.trim();
+  if(!val) return;
+  you(val);
+  if(state.step < state.questions.length){
+    const q = state.questions[state.step];
+    state.answers[q.key] = val;
+    state.step++;
+    askNext();
+  }
+  chatInput.value='';
+});
 
-const ITEMS = [
-  // Structural
-  {id:'deck', name:'Deck', cat:'struct', type:'rect', w:280,h:160, label:'DECK', model:MODEL_PLACEHOLDER},
-  {id:'pergola', name:'Pergola', cat:'struct', type:'pergola', w:240,h:140, label:'PERGOLA', model:MODEL_PLACEHOLDER},
-  {id:'gazebo', name:'Gazebo', cat:'struct', type:'gazebo', w:160,h:160, label:'GAZEBO', model:MODEL_PLACEHOLDER},
-  {id:'shed', name:'Shed', cat:'struct', type:'rect', w:120,h:80, label:'SHED', model:MODEL_PLACEHOLDER},
-  {id:'greenhouse', name:'Greenhouse', cat:'struct', type:'rect', w:140,h:90, label:'GREENHOUSE', model:MODEL_PLACEHOLDER},
-  {id:'outdoor_kitchen', name:'Outdoor Kitchen', cat:'struct', type:'rect', w:160,h:80, label:'KITCHEN', model:MODEL_PLACEHOLDER},
-  {id:'fence', name:'Fence', cat:'struct', type:'fence', w:400,h:20, label:'FENCE', model:MODEL_PLACEHOLDER},
-  {id:'patio', name:'Patio', cat:'struct', type:'hatchRect', w:280,h:160, label:'PATIO', model:MODEL_PLACEHOLDER},
+/* -----------------------------
+   Idea generation (heuristics)
+--------------------------------*/
+function thinkAndPropose(){
+  say('Thanks! Generating concepts for your backyard…');
 
-  // Water
-  {id:'pool_round', name:'Pool (Round)', cat:'water', type:'ellipse', rx:120,ry:100, label:'POOL', model:MODEL_PLACEHOLDER},
-  {id:'pool_rect', name:'Pool (Rect)', cat:'water', type:'roundRect', w:260,h:140, r:18, label:'POOL', model:MODEL_PLACEHOLDER},
-  {id:'hot_tub', name:'Hot Tub', cat:'water', type:'ellipse', rx:50,ry:50, label:'HOT TUB', model:MODEL_PLACEHOLDER},
-  {id:'pond', name:'Pond', cat:'water', type:'pond', w:240,h:150, label:'POND', model:MODEL_PLACEHOLDER},
-  {id:'waterfall', name:'Waterfall / Fountain', cat:'water', type:'fountain', w:120,h:60, label:'FOUNTAIN', model:MODEL_PLACEHOLDER},
+  // Parse + normalize inputs
+  const areaUsb = metaFromUSB.length_ft && metaFromUSB.width_ft
+    ? metaFromUSB.length_ft*metaFromUSB.width_ft : metaFromUSB.area_sqft;
+  const area = parseArea(state.answers.area) || areaUsb || 600; // default
+  const budget = (state.answers.budget || budgetEl.value || metaFromUSB.budget || 'medium').toLowerCase();
+  const style = (state.answers.style || styleEl.value || metaFromUSB.style || '').toLowerCase();
+  const sun = (state.answers.sun||'').toLowerCase() || (imageStats.isBright ? 'full sun' : 'partial');
+  const use = (state.answers.use||'entertaining').toLowerCase();
+  const features = (state.answers.feature||'').toLowerCase();
+  const skill = (state.answers.skill || skillEl.value || 'beginner');
 
-  // Gardens / Nature
-  {id:'zen', name:'Zen Garden', cat:'garden', type:'zen', w:300,h:200, label:'ZEN GARDEN', model:MODEL_PLACEHOLDER},
-  {id:'planter_beds', name:'Planter Beds', cat:'garden', type:'beds', w:200,h:40, label:'PLANTERS', model:MODEL_PLACEHOLDER},
-  {id:'veggie', name:'Vegetable Garden', cat:'garden', type:'hatchRect', w:220,h:120, label:'VEGGIES', model:MODEL_PLACEHOLDER},
-  {id:'flowers', name:'Flower Beds', cat:'garden', type:'hatchRect', w:220,h:120, label:'FLOWERS', model:MODEL_PLACEHOLDER},
-  {id:'trees', name:'Trees', cat:'garden', type:'trees', count:5, label:'TREES', model:MODEL_PLACEHOLDER},
-  {id:'shrubs', name:'Bushes / Shrubs', cat:'garden', type:'shrubs', count:7, label:'SHRUBS', model:MODEL_PLACEHOLDER},
-  {id:'rocks', name:'Rocks / Boulders', cat:'garden', type:'rocks', count:6, label:'ROCKS', model:MODEL_PLACEHOLDER},
-  {id:'turf', name:'Grass / Turf Area', cat:'garden', type:'dottedRect', w:320,h:220, label:'TURF', model:MODEL_PLACEHOLDER},
-  {id:'gravel', name:'Gravel Area', cat:'garden', type:'dottedRect', w:300,h:180, label:'GRAVEL', model:MODEL_PLACEHOLDER},
+  // Simple sizing
+  const small = area < 400, large = area > 900;
 
-  // Entertainment
-  {id:'fire_pit', name:'Fire Pit', cat:'fun', type:'fire', r:36, label:'FIRE', model:MODEL_PLACEHOLDER},
-  {id:'grill', name:'BBQ Grill', cat:'fun', type:'rect', w:80,h:40, label:'GRILL', model:MODEL_PLACEHOLDER},
-  {id:'hammock', name:'Hammock', cat:'fun', type:'arc', w:180,h:80, label:'HAMMOCK', model:MODEL_PLACEHOLDER},
-  {id:'dining', name:'Outdoor Dining Table', cat:'fun', type:'roundRect', w:160,h:80, r:10, label:'DINING', model:MODEL_PLACEHOLDER},
-  {id:'lounge', name:'Lounge Furniture', cat:'fun', type:'lounge', w:200,h:120, label:'LOUNGE', model:MODEL_PLACEHOLDER},
-  {id:'playset', name:'Playground / Swing', cat:'fun', type:'rect', w:200,h:140, label:'PLAYSET', model:MODEL_PLACEHOLDER},
-  {id:'trampoline', name:'Trampoline', cat:'fun', type:'ellipse', rx:80,ry:80, label:'TRAMP', model:MODEL_PLACEHOLDER},
+  // Feature picks based on signals
+  const wants = {
+    deck: /deck/.test(features) || use.includes('entertain'),
+    pergola: /pergola|shade/.test(features) || sun.includes('full'),
+    fire: /fire/.test(features) || (budget!=='low' && !sun.includes('full')),
+    planters: /planter|garden/.test(features) || style.includes('modern') || style.includes('zen'),
+    walkway: /path|walk/.test(features) || true,
+    lighting: /light/.test(features) || true,
+    privacy: /privacy|screen|fence/.test(features) || use.includes('relax'),
+    turf: /low|maint/.test(features) || (budget==='low' && !use.includes('garden')),
+  };
 
-  // Paths / Surfaces
-  {id:'path', name:'Pathway (Pavers)', cat:'paths', type:'path', w:260,h:20, label:'PATH', model:MODEL_PLACEHOLDER},
-  {id:'stepping', name:'Stepping Stones', cat:'paths', type:'stepping', count:7, label:'STEPS', model:MODEL_PLACEHOLDER},
-  {id:'paver_patio', name:'Patio Pavers', cat:'paths', type:'gridRect', w:260,h:160, label:'PAVERS', model:MODEL_PLACEHOLDER},
+  // Materials and rough ranges (very rough placeholders)
+  const material = style.includes('modern') ? 'composite + steel accents'
+                : style.includes('zen') ? 'ipe or cedar + stone'
+                : style.includes('rustic') ? 'pressure‑treated pine + gravel'
+                : 'composite or cedar';
+  const costBand = budget==='low' ? '$$' : budget==='high' ? '$$$$' : '$$$';
+
+  // Build idea cards
+  const cards = [];
+
+  // Layout
+  const layout = [];
+  if(wants.deck){
+    const deckSize = small? '10×10 ft' : large? '16×20 ft' : '12×16 ft';
+    layout.push(`Primary **deck** (~${deckSize}) in the sunniest corner; steps down to yard.`);
+  }
+  layout.push(`Define **zones**: lounge • dining • path • green.`);
+  if(wants.walkway) layout.push(`Curated **walkway** from door to lounge using pavers; ${style.includes('zen')?'add river rock edging':'add low garden border'}.`);
+
+  // Features
+  const feat = [];
+  if(wants.pergola) feat.push('Shade **pergola** with slatted roof; train vines or hang a shade cloth.');
+  if(wants.fire) feat.push('Compact **fire feature** (propane bowl for low-smoke evenings).');
+  if(wants.planters) feat.push('Modular **planter boxes** along fence for herbs and color.');
+  if(wants.privacy) feat.push('**Privacy screen** using cedar slats or tall grasses on the windward side.');
+  if(feat.length===0) feat.push('Movable **seating set** with storage bench.');
+
+  // Materials
+  const mats = [
+    `Primary surfaces: **${material}**.`,
+    `Path: 24" concrete pavers on compacted base with polymeric sand.`,
+    `Accents: black powder‑coated posts; warm wood tones to pair with ${imageStats.dominant}.`
+  ];
 
   // Lighting
-  {id:'path_lights', name:'Path Lights', cat:'light', type:'lights', count:8, label:'LIGHTS', model:MODEL_PLACEHOLDER},
-  {id:'string_lights', name:'String Lights', cat:'light', type:'string', w:300,h:100, label:'STRING', model:MODEL_PLACEHOLDER},
-  {id:'spots', name:'Landscape Spotlights', cat:'light', type:'spots', count:5, label:'SPOTS', model:MODEL_PLACEHOLDER},
-];
+  const light = [
+    'Low‑glare **LED step lights** on the deck.',
+    '**String lights** under pergola ridge.',
+    '**Bollard** or **downlights** along the path; motion sensor near gate.'
+  ];
 
-/* Populate Library buttons */
-const libSlots = {
-  struct: document.getElementById('lib-struct'),
-  water: document.getElementById('lib-water'),
-  garden: document.getElementById('lib-garden'),
-  fun: document.getElementById('lib-fun'),
-  paths: document.getElementById('lib-paths'),
-  light: document.getElementById('lib-light'),
-};
-ITEMS.forEach(it=>{
-  const b = document.createElement('button');
-  b.className='lib-btn';
-  b.textContent = it.name;
-  b.onclick = ()=> addItem(it.id, 200+Math.random()*700, 200+Math.random()*400, true);
-  libSlots[it.cat].appendChild(b);
-});
+  // Maintenance
+  const maint = [
+    style.includes('zen') ? 'Rake gravel lines monthly; prune shrubs for form.' :
+    'Clean surfaces every 6–12 months; check fasteners annually.',
+    'If using natural wood: seal every 1–2 years. Composite: wash with mild soap.'
+  ];
 
-/* ===============================
-   Blueprint generation & drawing
-=================================*/
-const R = n => Math.random()*n;
-const Ri = (a,b)=>Math.floor(a+Math.random()*(b-a+1));
-const stroke = getComputedStyle(document.documentElement).getPropertyValue('--line').trim();
-const fillSoft = getComputedStyle(document.documentElement).getPropertyValue('--fill-soft').trim();
-const hatch = getComputedStyle(document.documentElement).getPropertyValue('--hatch').trim();
-const dot = getComputedStyle(document.documentElement).getPropertyValue('--dot').trim();
+  // Costs (very rough text)
+  const cost = budget==='low' ? 'Focus on DIY pavers, pressure‑treated frames, and plug‑in lighting.'
+             : budget==='high' ? 'Consider composite decking, custom steel pergola, and hardwired lighting.'
+             : 'Mix composite or cedar decking with DIY paver path and plug‑in lighting.';
 
-let ITEMS_ON_CANVAS = []; // {id,type,x,y,rot,w,h,rx,ry,el,label,...}
-let SELECTED = null;
+  // Push cards
+  cards.push({title:'Site Read', lines:[
+    `Estimated area: **${area} sq ft** (${small?'compact':large?'spacious':'mid‑size'}).`,
+    `Sun exposure: **${sun}**. Intended use: **${use}**. Style cue: **${style||'balanced modern'}**.`,
+    `Photo tone ~ **${imageStats.dominant}** • scene is **${imageStats.isBright?'bright':'shaded'}**.`
+  ]});
+  cards.push({title:'Layout Plan', lines:layout});
+  cards.push({title:'Key Features', lines:feat});
+  cards.push({title:'Materials', lines:mats});
+  cards.push({title:'Lighting', lines:light});
+  cards.push({title:'Maintenance', lines:maint});
+  cards.push({title:`Budget Strategy (${costBand})`, lines:[cost]});
 
-function clearSVG(){
-  while(bp.firstChild) bp.removeChild(bp.firstChild);
-  ITEMS_ON_CANVAS = [];
-  SELECTED = null;
+  renderIdeas(cards);
+  say('Here are three starting concepts. Tell me “tweak for more shade” or “swap fire for water feature” to iterate.');
 }
 
-function add(el){ bp.appendChild(el); return el; }
-function elem(tag, attrs={}, cls=''){
-  const e = document.createElementNS('http://www.w3.org/2000/svg', tag);
-  for(const k in attrs) e.setAttribute(k, attrs[k]);
-  if(cls) e.setAttribute('class', cls);
-  return e;
-}
-
-function labelAt(t, x, y){
-  const tx = elem('text',{x,y, 'font-size':12, fill:stroke});
-  tx.textContent = t; return tx;
-}
-
-/* Bounds + house edge */
-function drawBounds(L, W){
-  const outer = elem('rect', {x:20,y:20,width:1160,height:760, fill:'none', stroke:stroke, 'stroke-width':2});
-  add(outer).classList.add('fall');
-  const house = elem('line', {x1:20,y1:110,x2:1180,y2:110, stroke:stroke, 'stroke-width':2, 'stroke-dasharray':'8 8'});
-  add(house).classList.add('fall');
-  add(labelAt('House', 30, 102));
-  const dim = elem('text',{x:1040,y:50, fill:stroke, 'font-size':14});
-  dim.textContent = `~ ${L} × ${W} ft`;
-  add(dim);
-}
-
-/* Add a new item by ID at x,y */
-function addItem(itemId, x, y, animated=false){
-  const meta = ITEMS.find(i=>i.id===itemId);
-  if(!meta) return;
-
-  const g = elem('g', { 'data-id':meta.id, cursor:'move' }, 'item');
-  if(animated) g.classList.add('fall');
-  add(g);
-
-  // Draw shape(s)
-  let w=meta.w||0, h=meta.h||0, rx=meta.rx||0, ry=meta.ry||0;
-  let mainShape = null;
-
-  function addHatchRect(x,y,w,h){
-    const r = elem('rect',{x,y,width:w,height:h, fill:fillSoft, stroke:stroke, 'stroke-width':2});
-    g.appendChild(r);
-    for(let i=x+8;i<x+w;i+=14){
-      g.appendChild(elem('line',{x1:i,y1:y+4,x2:i,y2:y+h-4, stroke:hatch, 'stroke-width':1}));
-    }
-    return r;
+function renderIdeas(cards){
+  ideasWrap.style.display='block';
+  ideasDiv.innerHTML='';
+  for(const c of cards){
+    const el = document.createElement('div');
+    el.className='card';
+    el.innerHTML = `<h4>${c.title}</h4>` + c.lines.map(l=>`<div>• ${l}</div>`).join('');
+    ideasDiv.appendChild(el);
   }
+}
 
-  switch(meta.type){
-    case 'rect':
-      mainShape = elem('rect',{x:-w/2,y:-h/2,width:w,height:h, class:'shape'}); g.appendChild(mainShape); break;
-    case 'hatchRect':
-      mainShape = addHatchRect(-w/2, -h/2, w, h); mainShape.classList.add('shape'); break;
-    case 'gridRect': {
-      mainShape = elem('rect',{x:-w/2,y:-h/2,width:w,height:h, class:'shape'}); g.appendChild(mainShape);
-      // grid lines
-      for(let i=-w/2+12;i<w/2;i+=24){
-        g.appendChild(elem('line',{x1:i,y1:-h/2+6,x2:i,y2:h/2-6, stroke:hatch, 'stroke-width':1}));
-      }
-      for(let j=-h/2+12;j<h/2;j+=24){
-        g.appendChild(elem('line',{x1:-w/2+6,y1:j,x2:w/2-6,y2:j, stroke:hatch, 'stroke-width':1}));
-      }
-      break;
-    }
-    case 'roundRect': {
-      const r = meta.r||12;
-      mainShape = elem('rect',{x:-w/2,y:-h/2,width:w,height:h, rx:r, ry:r, class:'shape'}); g.appendChild(mainShape); break;
-    }
-    case 'ellipse':
-      rx = meta.rx; ry = meta.ry;
-      mainShape = elem('ellipse',{cx:0,cy:0,rx,ry, class:'shape'}); g.appendChild(mainShape);
-      // water shimmer if it's a pool/hot tub/trampoline
-      if(meta.id.includes('pool') || meta.id==='hot_tub' || meta.id==='trampoline'){
-        for(let i=0;i<4;i++){
-          const rxi = rx - i*16, ryi = ry - i*10;
-          if(rxi>0 && ryi>0){
-            g.appendChild(elem('ellipse',{cx:0,cy:0,rx:rxi,ry:ryi, fill:'none', stroke:stroke, 'stroke-opacity':.45, 'stroke-dasharray':'2 10'}));
-          }
-        }
-      }
-      break;
-    case 'pond': {
-      // irregular blob
-      w = meta.w; h = meta.h;
-      const p = `M ${-w/2} 0 Q ${-w/3} ${-h/2} 0 ${-h/3} T ${w/2} 0 T 0 ${h/3} T ${-w/2} 0 Z`;
-      mainShape = elem('path',{d:p, class:'shape'}); g.appendChild(mainShape);
-      break;
-    }
-    case 'fountain': {
-      mainShape = elem('rect',{x:-meta.w/2,y:-meta.h/2,width:meta.w,height:meta.h, rx:20, ry:20, class:'shape dashed'}); g.appendChild(mainShape);
-      const spray = elem('path',{d:`M -40 0 Q 0 -40 40 0`, fill:'none', stroke:stroke, 'stroke-dasharray':'3 8'});
-      g.appendChild(spray);
-      break;
-    }
-    case 'zen': {
-      mainShape = elem('rect',{x:-meta.w/2,y:-meta.h/2,width:meta.w,height:meta.h, rx:18, ry:18, class:'shape'}); g.appendChild(mainShape);
-      for(let i=-meta.h/2+14;i<meta.h/2-10;i+=16){
-        g.appendChild(elem('path',{d:`M ${-meta.w/2+10} ${i} Q 0 ${i-6} ${meta.w/2-10} ${i}`, fill:'none', stroke:stroke, 'stroke-opacity':.6}));
-      }
-      for(let i=0;i<6;i++){
+/* Boot */
+resetBtn.click(); // initialize
+</script>
+</body>
+</html>
 
 
 
