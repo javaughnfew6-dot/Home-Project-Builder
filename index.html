@@ -1,418 +1,475 @@
 
-# app.py
-import os
-import io
-import json
-import base64
-from typing import Dict, Any, List, Optional
-
-from fastapi import FastAPI, UploadFile, File, Form, Request
-from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field, ValidationError
-from PIL import Image
-# OpenAI SDK v1
-from openai import OpenAI
-
-###############################################################################
-# Models (Pydantic)
-###############################################################################
-
-class Preferences(BaseModel):
-    budget: Optional[str] = Field(None, description="Low/Medium/High or $ range")
-    skill_level: Optional[str] = Field(None, description="Beginner/Intermediate/Advanced")
-    wood_preference: Optional[List[str]] = Field(None, description="['ipe','teak','cumaru','mahogany']")
-    style: Optional[str] = Field(None, description="modern, rustic, traditional, japanese, etc.")
-
-class Project(BaseModel):
-    name: str
-    why_it_fits: str
-    estimated_cost_range: str
-    difficulty: str
-    estimated_time: str
-    materials: List[str]
-    tools: List[str]
-    steps: List[str]
-    placement_hint: Optional[str] = None
-    maintenance_notes: Optional[str] = None
-
-class AnalysisResult(BaseModel):
-    description: str
-    detected_features: List[str]
-    sunlight_notes: Optional[str] = None
-    yard_constraints: Optional[List[str]] = None
-    suggested_projects: List[Project]
-
-class ChatRequest(BaseModel):
-    message: str
-    history: Optional[List[Dict[str, str]]] = None  # [{role:'user'|'assistant', content:'...'}]
-    context: Optional[Dict[str, Any]] = None        # carry over last analysis result
-
-
-###############################################################################
-# Prompts
-###############################################################################
-
-SYSTEM_ANALYST = """You are a friendly, practical DIY planner for backyard hardwood projects.
-You analyze a single backyard photo and the user's preferences to recommend projects that fit
-space, sun/shade, privacy needs, and skill/budget. You MUST produce strict JSON only.
-
-Safety: Do not give cutting/structural advice that could cause harm. Encourage permits/code checks.
-Measurements are approximate; advise verification with tape and local codes.
-
-Hardwood focus: ipe, teak, cumaru, garapa, mahogany. If budget is low, suggest lower-cost alternatives
-(like pressure-treated or composite) only as optional notes."""
-
-ANALYSIS_JSON_SCHEMA = """
-{
-  "description": "1-3 sentences describing the backyard and layout.",
-  "detected_features": ["list known elements like lawn, trees, patio, slope, fence"],
-  "sunlight_notes": "approximate notes about shade vs sun areas if visible",
-  "yard_constraints": ["drainage/slope/clearances/door swings if inferred"],
-  "suggested_projects": [
-    {
-      "name": "Pergola / Deck / Fence / Raised Beds / Bench / Walkway / Storage Box / etc.",
-      "why_it_fits": "Why it suits the pictured space.",
-      "estimated_cost_range": "$$$ rough range appropriate to hardwood choice",
-      "difficulty": "Beginner/Intermediate/Advanced",
-      "estimated_time": "e.g., 1 weekend, 2–3 weekends",
-      "materials": ["board feet, species hints, hardware, concrete if needed"],
-      "tools": ["miter saw, drill/driver, post hole digger, PPE"],
-      "steps": ["High-level, safe and sane steps only."],
-      "placement_hint": "Where in the yard it likely fits best.",
-      "maintenance_notes": "oil/sealant schedule, ventilation, end-grain sealing"
-    }
-  ]
-}
-"""
-
-CHAT_SYSTEM = """You are a talkative, encouraging DIY assistant that helps refine backyard hardwood projects.
-Use the prior analysis as context when available. Keep advice practical and safe, remind about permits/codes
-for structural work, and provide material takeoffs only as rough estimates."""
-
-
-###############################################################################
-# Vision + LLM helpers (OpenAI or Azure OpenAI)
-###############################################################################
-
-USE_AZURE = bool(os.getenv("AZURE_OPENAI_ENDPOINT"))
-MODEL_NAME = os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-4o-mini")
-
-def _client():
-    # Single client used for both analyze + chat
-    return OpenAI(
-        api_key=os.getenv("OPENAI_API_KEY")
-        if not USE_AZURE else os.getenv("AZURE_OPENAI_API_KEY")
-    )
-
-def _image_data_url(img_bytes: bytes, content_type: str = "image/jpeg") -> str:
-    b64 = base64.b64encode(img_bytes).decode("utf-8")
-    return f"data:{content_type};base64,{b64}"
-
-def analyze_image_with_llm(img_bytes: bytes, preferences: Dict[str, Any], content_type: str) -> Dict[str, Any]:
-    """
-    Sends the image + preferences to a multimodal model and requests strict JSON output.
-    Uses Chat Completions with image content (data URL).
-    """
-    client = _client()
-    img_url = _image_data_url(img_bytes, content_type=content_type)
-
-    user_content = [
-        {"type": "text", "text": "Analyze this backyard photo for hardwood project ideas."},
-        {"type": "input_image", "image_url": {"url": img_url}},
-        {"type": "text", "text": f"Preferences: {json.dumps(preferences)}"},
-        {"type": "text", "text": "Return ONLY JSON in the following schema:"},
-        {"type": "text", "text": ANALYSIS_JSON_SCHEMA},
-    ]
-
-    # response_format enforces valid JSON
-    resp = client.chat.completions.create(
-        model=MODEL_NAME,
-        messages=[
-            {"role": "system", "content": SYSTEM_ANALYST},
-            {"role": "user", "content": user_content}
-        ],
-        temperature=0.5,
-        response_format={"type": "json_object"},
-    )
-
-    content = resp.choices[0].message.content
-    try:
-        return json.loads(content)
-    except Exception as e:
-        # Try crude JSON extraction if the model ever slips
-        start = content.find("{")
-        end = content.rfind("}")
-        if start != -1 and end != -1:
-            return json.loads(content[start:end+1])
-        raise RuntimeError(f"LLM parsing error: {e}")
-
-def heuristic_suggestions() -> Dict[str, Any]:
-    """
-    Very basic fallback if the vision model is unavailable (no API key, rate limit, etc.).
-    """
-    return {
-        "description": "Backyard (generic). Exact layout unknown due to fallback mode.",
-        "detected_features": ["unknown"],
-        "sunlight_notes": "Unknown; consider where mid-day shade occurs.",
-        "yard_constraints": ["Verify property lines and underground utilities (call 811)."],
-        "suggested_projects": [
-            {
-                "name": "Ipe Deck (small platform)",
-                "why_it_fits": "Works for most backdoors/patios to create a level seating area.",
-                "estimated_cost_range": "$1,200–$3,000+ depending on size and species",
-                "difficulty": "Intermediate",
-                "estimated_time": "2 weekends",
-                "materials": [
-                    "Ipe decking boards 1x6",
-                    "Joists + hangers",
-                    "Stainless screws",
-                    "Concrete deck blocks or footings",
-                    "End-grain sealer",
-                    "Exterior oil"
-                ],
-                "tools": ["Miter saw", "Drill/driver", "Joist square", "PPE"],
-                "steps": [
-                    "Plan size and check local codes; obtain permits if required.",
-                    "Layout and set deck blocks or pour footings.",
-                    "Build frame, ensure pitch and ventilation gaps.",
-                    "Install decking with proper spacing; seal end-grain.",
-                    "Oil top surface if desired; add trim."
-                ],
-                "placement_hint": "Adjacent to house/patio door.",
-                "maintenance_notes": "Clean yearly; oil every 6–12 months if you want to preserve color."
-            },
-            {
-                "name": "Cedar Privacy Screen",
-                "why_it_fits": "Creates a cozy corner and blocks views without enclosing the whole yard.",
-                "estimated_cost_range": "$250–$700",
-                "difficulty": "Beginner",
-                "estimated_time": "1 weekend",
-                "materials": [
-                    "Cedar boards 1x4/1x6",
-                    "Posts 4x4 (pressure-treated base optional)",
-                    "Exterior screws",
-                    "Concrete for post footings"
-                ],
-                "tools": ["Drill/driver", "Post-hole digger", "Level", "Saw", "PPE"],
-                "steps": [
-                    "Mark layout; call 811 before digging.",
-                    "Set posts in concrete below frost line (check local depth).",
-                    "Attach horizontal or slatted boards with even spacing.",
-                    "Seal/stain as desired."
-                ],
-                "placement_hint": "Line of sight you want to block.",
-                "maintenance_notes": "Re-seal/stain every 1–2 years."
-            }
-        ]
-    }
-
-
-###############################################################################
-# FastAPI App
-###############################################################################
-
-app = FastAPI(title="Backyard Hardwood AI (Single-File)")
-
-# Not strictly needed (same-origin), but handy if you host frontend elsewhere later
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # tighten in production
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-
-@app.get("/", response_class=HTMLResponse)
-async def index(_: Request):
-    """
-    Serves the entire Frontend (HTML+CSS+JS) from a single string.
-    """
-    html = """
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Backyard Hardwood AI</title>
-  <style>
-    :root { color-scheme: light dark; --bg:#fff; --fg:#111; --muted:#666; --card:#fff; --border:#ddd; --accent:#0f62fe;}
-    html,body { margin:0; padding:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background: var(--bg); color: var(--fg); }
-    .container { max-width: 1100px; margin: 0 auto; padding: 24px; }
-    h1 { margin: 0 0 6px; }
-    .muted { color: var(--muted); margin: 0 0 16px; }
-    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px,1fr)); gap: 12px; }
-    .card { border: 1px solid var(--border); border-radius: 10px; padding: 16px; background: var(--card); }
-    .preview { max-width: 100%; margin-top: 8px; border-radius: 8px; }
-    .row { display: flex; align-items: center; gap: 12px; margin: 12px 0; }
-    .error { color: #b00020; }
-    button { padding: 10px 14px; border-radius: 8px; border: 0; background: var(--accent); color: white; cursor: pointer; }
-    button:disabled { background: #9bbcff; cursor: wait; }
-    label { display: block; margin: 8px 0; }
-    fieldset { border: 1px solid var(--border); padding: 8px; border-radius: 8px; }
-    .chip { margin-right: 8px; }
-    .chat { min-height: 120px; border: 1px solid #eee; border-radius: 8px; padding: 8px; background: #fafafa; margin: 8px 0; max-height: 280px; overflow: auto; }
-    .bubble { max-width: 80%; margin: 6px 0; padding: 8px 10px; border-radius: 12px; }
-    .bubble.user { background: #e8f0fe; margin-left:auto; }
-    .bubble.assistant { background: #f1f3f4; margin-right:auto; }
-    .spinner { padding: 6px 10px; background:#f1f3f4; border-radius: 8px; }
-    .project h5 { margin: 8px 0 4px; }
-    .vis { font-size: 12px; color: var(--muted); margin-top: 6px; }
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Blue Orb Backyard Planner (Prototype)</title>
+<style>
+  :root{
+    --bg:#0b1020;
+    --panel:#12192b;
+    --panel-2:#0e1526;
+    --text:#e7ecff;
+    --muted:#aac1ff;
+    --accent:#3b82f6;       /* Primary blue */
+    --accent-2:#60a5fa;
+    --accent-3:#93c5fd;
+    --good:#22c55e;
+    --warn:#f59e0b;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
+    color:var(--text);
+    background: radial-gradient(1200px 600px at 70% -10%, #1b2a5a55, transparent),
+                linear-gradient(180deg, #070b14, var(--bg));
+    min-height:100svh; display:flex; flex-direction:column; gap:16px;
+  }
+  header{
+    padding:16px 20px; display:flex; align-items:center; gap:12px;
+    background:linear-gradient(180deg, #0c1429cc, #0c142980), url('data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==');
+    border-bottom:1px solid #1e2a4c;
+    position:sticky; top:0; backdrop-filter:blur(8px); z-index:5;
+  }
+  header h1{margin:0; font-weight:700; font-size:18px; letter-spacing:.2px}
+  header .pill{
+    padding:4px 10px; border:1px solid #1e2a4c; border-radius:999px; color:var(--muted);
+    background: linear-gradient(180deg, #0d1938, #0a1329);
+  }
+
+  /* Stage with Orb */
+  .stage{
+    position:relative; padding:30px 20px 10px; display:grid; gap:18px;
+    grid-template-columns: minmax(280px, 360px) 1fr;
+  }
+  @media (max-width:900px){ .stage{ grid-template-columns: 1fr; } }
+
+  .orb-wrap{
+    position:relative; display:flex; align-items:center; justify-content:center;
+    padding:16px; height:360px; background:linear-gradient(180deg, #0a1329, #0a1230);
+    border:1px solid #1e2a4c; border-radius:16px; overflow:hidden;
+  }
+  .orb{
+    width:140px; height:140px; border-radius:50%;
+    background:
+      radial-gradient(60% 60% at 35% 35%, #ffffffaa, transparent 45%),
+      radial-gradient(100% 100% at 50% 50%, var(--accent-2), var(--accent));
+    box-shadow:
+      0 0 24px 8px #3b82f644,
+      0 0 64px 24px #60a5fa33 inset,
+      0 0 200px 40px #3b82f61f;
+    filter: drop-shadow(0 8px 24px #3b82f666);
+    animation: float 4.5s ease-in-out infinite;
+    position:absolute;
+  }
+  .orb.rise{
+    animation: rise 2.4s ease forwards, glow 4s ease-in-out infinite 2.4s;
+  }
+  @keyframes float{
+    0%,100%{ transform: translateY(0) }
+    50%{ transform: translateY(-12px) }
+  }
+  @keyframes rise{
+    0%{ transform: translate(-50%, -20%); left:50%; top:50%; }
+    100%{ transform: translate(-50%, -260px); left:50%; top:0; }
+  }
+  @keyframes glow{
+    0%,100%{ box-shadow: 0 0 28px 10px #60a5fa66, 0 0 80px 12px #60a5fa44 inset }
+    50%{ box-shadow: 0 0 42px 16px #93c5fd88, 0 0 120px 20px #93c5fd66 inset }
+  }
+
+  .panel{
+    background:linear-gradient(180deg, var(--panel), var(--panel-2));
+    border:1px solid #1e2a4c; border-radius:16px; padding:14px;
+  }
+  .row{ display:flex; gap:8px; flex-wrap:wrap }
+  .btn{
+    appearance:none; border:1px solid #24407a; color:#dbe8ff; background:#0d1a3a;
+    padding:10px 14px; border-radius:10px; cursor:pointer;
+    transition: .15s background, .15s border, transform .06s;
+  }
+  .btn:hover{ background:#122458; border-color:#3158a6 }
+  .btn:active{ transform: translateY(1px) }
+  .btn.primary{ background:linear-gradient(180deg, #1d4ed8, #1e40af); border-color:#1e3a8a }
+  .btn.ghost{ background:transparent }
+  input, select, textarea{
+    background:#0b1430; color:var(--text); border:1px solid #223a6b; border-radius:10px;
+    padding:10px 12px; width:100%;
+  }
+  label{ font-size:13px; color:var(--muted) }
+
+  /* Chat */
+  .chat{ height:340px; overflow:auto; display:flex; flex-direction:column; gap:10px; padding-right:4px }
+  .msg{ max-width:86%; padding:10px 12px; border-radius:12px; line-height:1.35 }
+  .msg.ai{ background:#0b1a3a; border:1px solid #2a4ea0; align-self:flex-start }
+  .msg.user{ background:#0f1d38; border:1px solid #27406e; align-self:flex-end }
+  .tiny{ font-size:12px; color:#b6c8ff }
+
+  /* Ideas */
+  .ideas{ display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:12px }
+  .card{ background:#0d1731; border:1px solid #1f325c; border-radius:12px; padding:12px }
+  .card h4{ margin:0 0 8px 0 }
+  .tag{ display:inline-block; margin:2px 6px 2px 0; font-size:12px; padding:4px 8px; border-radius:999px; border:1px solid #2b4380; color:#b9ccff; background:#0a142f }
+
+  /* Preview */
+  .preview{ width:100%; aspect-ratio: 4/3; object-fit:cover; border-radius:12px; border:1px solid #1f325c; background:#091128; }
+</style>
 </head>
 <body>
-  <div class="container">
-    <h1>Backyard Hardwood AI</h1>
-    <p class="muted">
-      Upload your backyard photo to get hardwood project ideas (decks, pergolas, fences, raised beds, walkways, benches), then chat with the planner.<br/>
-      <strong>Note:</strong> Measurements/estimates are approximate. Check local codes/permits and call 811 before digging.
-    </p>
 
-    <div class="grid2">
-      <div class="card">
-        <h3>1) Upload your backyard photo</h3>
-        <input id="file" type="file" accept="image/*"/>
-        <img id="preview" class="preview" style="display:none"/>
-        <div id="fileInfo" class="vis"></div>
-      </div>
+<header>
+  <div style="width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px #60a5fa"></div>
+  <h1>Blue Orb Backyard Planner</h1>
+  <div class="pill">Prototype • Offline</div>
+</header>
 
-      <div class="card">
-        <h3>2) Preferences</h3>
-        <label>Budget
-          <select id="prefBudget">
-            <option value="">—</option>
-            <option>Low</option><option>Medium</option><option>High</option>
-          </select>
-        </label>
-
-        <label>Skill Level
-          <select id="prefSkill">
-            <option value="">—</option>
-            <option>Beginner</option><option>Intermediate</option><option>Advanced</option>
-          </select>
-        </label>
-
-        <label>Style
-          <input id="prefStyle" placeholder="modern / rustic / traditional"/>
-        </label>
-
-        <fieldset>
-          <legend>Hardwood Preference</legend>
-          <label class="chip"><input type="checkbox" class="wood" value="ipe" checked/> ipe</label>
-          <label class="chip"><input type="checkbox" class="wood" value="teak"/> teak</label>
-          <label class="chip"><input type="checkbox" class="wood" value="cumaru"/> cumaru</label>
-          <label class="chip"><input type="checkbox" class="wood" value="garapa"/> garapa</label>
-          <label class="chip"><input type="checkbox" class="wood" value="mahogany"/> mahogany</label>
-        </fieldset>
-      </div>
-    </div>
-
-    <div class="row">
-      <button id="analyzeBtn">Analyze Photo</button>
-      <div id="spinner" class="spinner" style="display:none">Analyzing…</div>
-      <div id="error" class="error"></div>
-    </div>
-
-    <div id="results" class="card" style="display:none">
-      <h3>Results</h3>
-      <p><strong>Description:</strong> <span id="desc"></span></p>
-      <p id="sunRow" style="display:none"><strong>Sunlight:</strong> <span id="sun"></span></p>
-      <p id="detRow" style="display:none"><strong>Detected:</strong> <span id="det"></span></p>
-      <p id="conRow" style="display:none"><strong>Constraints:</strong> <span id="con"></span></p>
-
-      <h4>Suggested Projects</h4>
-      <div id="projGrid" class="grid"></div>
-    </div>
-
-    <div class="card">
-      <h3>Ask the DIY Assistant</h3>
-      <div id="chatBox" class="chat"></div>
+<main class="stage">
+  <!-- Left: Orb, USB Upload, Controls -->
+  <section class="orb-wrap panel">
+    <div id="orb" class="orb" style="left:50%; top:50%; transform:translate(-50%,-20%)"></div>
+    <div style="position:absolute;bottom:12px;left:12px;right:12px;">
       <div class="row">
-        <input id="chatInput" placeholder="e.g., Can I add a pergola to the left corner?"/>
-        <button id="sendBtn">Send</button>
+        <label class="btn">
+          <input id="usb" type="file" accept="image/*,.json" hidden />
+          🔌 Connect “USB” (photo or .json)
+        </label>
+        <button id="analyze" class="btn primary">Analyze</button>
+        <button id="reset" class="btn ghost">Reset</button>
+      </div>
+      <div class="tiny" style="margin-top:6px">
+        Tip: Upload a backyard photo (JPG/PNG) or a JSON file like:
+        <code>{"length_ft":40,"width_ft":28,"budget":"medium"}</code>
       </div>
     </div>
-  </div>
+  </section>
 
-  <script>
-    const $ = (id) => document.getElementById(id)
-    const state = {
-      file: null,
-      analysis: null,
-      history: []
+  <!-- Right: Chat + Preview -->
+  <section class="panel" style="display:grid; grid-template-columns: 1fr 280px; gap:12px;">
+    <div style="display:flex; flex-direction:column; gap:10px; min-width:0">
+      <div id="chat" class="chat panel" style="padding:10px; background:#0a142f"></div>
+      <form id="chatForm" class="row" autocomplete="off">
+        <input id="chatInput" placeholder="Type your answer…" />
+        <button class="btn primary" type="submit">Send</button>
+      </form>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:10px">
+      <img id="preview" class="preview" alt="Backyard preview" />
+      <div>
+        <label>Style preference</label>
+        <select id="style">
+          <option value="">Let the Orb decide</option>
+          <option>modern</option>
+          <option>rustic</option>
+          <option>zen</option>
+          <option>family</option>
+          <option>minimal</option>
+        </select>
+      </div>
+      <div class="row">
+        <div style="flex:1">
+          <label>Budget</label>
+          <select id="budget">
+            <option value="">—</option>
+            <option>low</option>
+            <option>medium</option>
+            <option>high</option>
+          </select>
+        </div>
+        <div style="flex:1">
+          <label>Skill</label>
+          <select id="skill">
+            <option value="">—</option>
+            <option>beginner</option>
+            <option>intermediate</option>
+            <option>advanced</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Suggestions -->
+  <section id="ideasWrap" class="panel" style="display:none">
+    <h3 style="margin:4px 0 12px 0">Backyard Concepts</h3>
+    <div id="ideas" class="ideas"></div>
+  </section>
+</main>
+
+<script>
+/* -----------------------------
+   Tiny “backend” in the browser
+--------------------------------*/
+const orb = document.getElementById('orb');
+const usb = document.getElementById('usb');
+const analyzeBtn = document.getElementById('analyze');
+const resetBtn = document.getElementById('reset');
+const preview = document.getElementById('preview');
+const chat = document.getElementById('chat');
+const chatForm = document.getElementById('chatForm');
+const chatInput = document.getElementById('chatInput');
+const styleEl = document.getElementById('style');
+const budgetEl = document.getElementById('budget');
+const skillEl = document.getElementById('skill');
+const ideasWrap = document.getElementById('ideasWrap');
+const ideasDiv = document.getElementById('ideas');
+
+let imageBitmap = null;
+let metaFromUSB = {};
+let imageStats = {avg:[0,0,0], brightness:0, isBright:false, dominant:'#6aa8ff'};
+
+const state = {
+  step: 0,
+  answers: {},
+  questions: [
+    {key:'area', text:'What is your backyard size? You can say length × width in feet (e.g., 40x28) or total sq ft.'},
+    {key:'sun', text:'How sunny is it? (full sun / partial / shade)'},
+    {key:'use', text:'What’s the main use? (relaxing, entertaining, kids, pets, gardening, grilling)'},
+    {key:'feature', text:'Any must‑have features? (deck, pergola, fire pit, walkway, planters, lighting, privacy)'}
+  ]
+};
+
+function say(text){
+  const m = document.createElement('div');
+  m.className='msg ai';
+  m.textContent=text;
+  chat.appendChild(m);
+  chat.scrollTop = chat.scrollHeight;
+}
+function you(text){
+  const m = document.createElement('div');
+  m.className='msg user';
+  m.textContent=text;
+  chat.appendChild(m);
+  chat.scrollTop = chat.scrollHeight;
+}
+function askNext(){
+  if(state.step < state.questions.length){
+    say(state.questions[state.step].text);
+  }else{
+    thinkAndPropose();
+  }
+}
+
+function parseArea(str){
+  if(!str) return null;
+  const m = str.toLowerCase().replace(/\s/g,'');
+  const xy = m.match(/(\d+)\s*[x×]\s*(\d+)/);
+  if(xy) return (+xy[1])*(+xy[2]);
+  const sq = m.match(/(\d+)\s*(sq|sf|ft2|ft²|feet|ft)/);
+  if(sq) return +sq[1];
+  const num = m.match(/^\d+$/);
+  if(num) return +num[0];
+  return null;
+}
+
+/* Simple image analysis: average color + brightness */
+async function analyzeImage(file){
+  try{
+    const bmp = await createImageBitmap(file);
+    imageBitmap = bmp;
+    const canvas = new OffscreenCanvas(bmp.width, bmp.height);
+    const ctx = canvas.getContext('2d');
+    // sample down to speed up
+    const s = Math.max(1, Math.floor(Math.min(bmp.width,bmp.height)/240));
+    const w = Math.floor(bmp.width/s), h = Math.floor(bmp.height/s);
+    canvas.width = w; canvas.height = h;
+    ctx.drawImage(bmp,0,0,w,h);
+    const img = ctx.getImageData(0,0,w,h).data;
+    let r=0,g=0,b=0,c=0, bright=0;
+    for(let i=0;i<img.length;i+=4){
+      r+=img[i]; g+=img[i+1]; b+=img[i+2];
+      const Y = .2126*img[i]+.7152*img[i+1]+.0722*img[i+2];
+      bright+=Y; c++;
     }
+    r=Math.round(r/c); g=Math.round(g/c); b=Math.round(b/c);
+    const hex = '#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
+    const br = bright/c;
+    imageStats = {avg:[r,g,b], brightness:br, isBright: br>140, dominant:hex};
+  }catch(e){
+    console.warn('Image analysis failed', e);
+  }
+}
 
-    // Image preview
-    $('file').addEventListener('change', (e) => {
-      const f = e.target.files?.[0]
-      if (!f) return
-      state.file = f
-      const url = URL.createObjectURL(f)
-      const img = $('preview')
-      img.src = url
-      img.style.display = 'block'
-      $('fileInfo').textContent = f.name + ' • ' + Math.round(f.size/1024) + ' KB'
-    })
-
-    // Gather preferences
-    function collectPrefs() {
-      const woods = [...document.querySelectorAll('.wood:checked')].map(el => el.value)
-      return {
-        budget: $('prefBudget').value || null,
-        skill_level: $('prefSkill').value || null,
-        style: $('prefStyle').value || null,
-        wood_preference: woods.length ? woods : null
-      }
+usb.addEventListener('change', async (e)=>{
+  const f = e.target.files?.[0];
+  if(!f) return;
+  if(f.type.startsWith('image/')){
+    preview.src = URL.createObjectURL(f);
+    await analyzeImage(f);
+    say('USB connected. I see your photo. Nice space! I’ll ask a few quick questions.');
+  }else if(f.name.endsWith('.json')){
+    try{
+      const txt = await f.text();
+      metaFromUSB = JSON.parse(txt);
+      say('USB connected. I loaded your yard data JSON.');
+      if(metaFromUSB.photoDataUrl){ preview.src = metaFromUSB.photoDataUrl; }
+    }catch(err){
+      say('I could not read the JSON. Make sure it is valid.');
     }
+  }else{
+    say('Please upload a backyard photo (jpg/png) or a .json file.');
+  }
+});
 
-    // Render projects
-    function renderProjects(list) {
-      const grid = $('projGrid')
-      grid.innerHTML = ''
-      ;(list || []).forEach((p, i) => {
-        const div = document.createElement('div')
-        div.className = 'project card'
-        div.innerHTML = `
-          <h5>${p.name || ''}</h5>
-          <p>${p.why_it_fits || ''}</p>
-          <p><strong>Cost:</strong> ${p.estimated_cost_range || ''}</p>
-          <p><strong>Difficulty:</strong> ${p.difficulty || ''}</p>
-          <p><strong>Time:</strong> ${p.estimated_time || ''}</p>
-          ${p.placement_hint ? `<p><strong>Placement:</strong> ${p.placement_hint}</p>` : ''}
-          ${p.maintenance_notes ? `<p><strong>Maintenance:</strong> ${p.maintenance_notes}</p>` : ''}
-          <details><summary>Materials</summary>
-            <ul>${(p.materials||[]).map(m=>`<li>${m}</li>`).join('')}</ul>
-          </details>
-          <details><summary>Tools</summary>
-            <ul>${(p.tools||[]).map(t=>`<li>${t}</li>`).join('')}</ul>
-          </details>
-          <details><summary>Steps</summary>
-            <ol>${(p.steps||[]).map(s=>`<li>${s}</li>`).join('')}</ol>
-          </details>
-        `
-        grid.appendChild(div)
-      })
-    }
+resetBtn.addEventListener('click', ()=>{
+  chat.innerHTML = '';
+  ideasWrap.style.display = 'none';
+  ideasDiv.innerHTML = '';
+  preview.removeAttribute('src');
+  imageBitmap=null; metaFromUSB={}; imageStats={avg:[0,0,0], brightness:0, isBright:false, dominant:'#6aa8ff'};
+  Object.assign(state, {step:0, answers:{}});
+  orb.classList.remove('rise');
+  say('Hi, I am your Blue Orb. Plug in your “USB” and press Analyze to begin.');
+});
 
-    // Analyze click
-    $('analyzeBtn').addEventListener('click', async () => {
-      $('error').textContent = ''
-      if (!state.file) { $('error').textContent = 'Please upload an image first.'; return }
-      $('spinner').style.display = 'inline-block'
+analyzeBtn.addEventListener('click', ()=>{
+  orb.classList.add('rise');
+  ideasWrap.style.display='none';
+  ideasDiv.innerHTML='';
+  // seed defaults from right-side controls or JSON
+  state.answers.budget = budgetEl.value || metaFromUSB.budget || '';
+  state.answers.style = (styleEl.value || metaFromUSB.style || '').toLowerCase();
+  state.answers.skill = (skillEl.value || metaFromUSB.skill || '').toLowerCase();
+  // kickoff Q&A
+  say('Rising to scan your yard…');
+  setTimeout(()=>{
+    say('Scan complete. Let’s personalize your plan.');
+    askNext();
+  }, 1000);
+});
 
-      const form = new FormData()
-      form.append('image', state.file)
-      form.append('preferences', JSON.stringify(collectPrefs()))
+chatForm.addEventListener('submit', (e)=>{
+  e.preventDefault();
+  const val = chatInput.value.trim();
+  if(!val) return;
+  you(val);
+  if(state.step < state.questions.length){
+    const q = state.questions[state.step];
+    state.answers[q.key] = val;
+    state.step++;
+    askNext();
+  }
+  chatInput.value='';
+});
 
-      try {
-        const res = await fetch('/api/analyze', { method:'POST', body: form })
-        const data = await res.json()
-        $('spinner').style.display = 'none'
-        if (!data.ok) { $('error').textContent = data.error || 'Something went wrong.'; return }
-        state.analysis = data.analysis
+/* -----------------------------
+   Idea generation (heuristics)
+--------------------------------*/
+function thinkAndPropose(){
+  say('Thanks! Generating concepts for your backyard…');
 
-        $('results').style.display = 'block'
-        $('desc').textContent = state.analysis.description || ''
-        if (state.analysis.sunlight_notes) { $('sun').textContent = state.analysis.sunlight_notes; $('sunRow').style.display='block' } else { $('sunRow').style.display='none' }
+  // Parse + normalize inputs
+  const areaUsb = metaFromUSB.length_ft && metaFromUSB.width_ft
+    ? metaFromUSB.length_ft*metaFromUSB.width_ft : metaFromUSB.area_sqft;
+  const area = parseArea(state.answers.area) || areaUsb || 600; // default
+  const budget = (state.answers.budget || budgetEl.value || metaFromUSB.budget || 'medium').toLowerCase();
+  const style = (state.answers.style || styleEl.value || metaFromUSB.style || '').toLowerCase();
+  const sun = (state.answers.sun||'').toLowerCase() || (imageStats.isBright ? 'full sun' : 'partial');
+  const use = (state.answers.use||'entertaining').toLowerCase();
+  const features = (state.answers.feature||'').toLowerCase();
+  const skill = (state.answers.skill || skillEl.value || 'beginner');
+
+  // Simple sizing
+  const small = area < 400, large = area > 900;
+
+  // Feature picks based on signals
+  const wants = {
+    deck: /deck/.test(features) || use.includes('entertain'),
+    pergola: /pergola|shade/.test(features) || sun.includes('full'),
+    fire: /fire/.test(features) || (budget!=='low' && !sun.includes('full')),
+    planters: /planter|garden/.test(features) || style.includes('modern') || style.includes('zen'),
+    walkway: /path|walk/.test(features) || true,
+    lighting: /light/.test(features) || true,
+    privacy: /privacy|screen|fence/.test(features) || use.includes('relax'),
+    turf: /low|maint/.test(features) || (budget==='low' && !use.includes('garden')),
+  };
+
+  // Materials and rough ranges (very rough placeholders)
+  const material = style.includes('modern') ? 'composite + steel accents'
+                : style.includes('zen') ? 'ipe or cedar + stone'
+                : style.includes('rustic') ? 'pressure‑treated pine + gravel'
+                : 'composite or cedar';
+  const costBand = budget==='low' ? '$$' : budget==='high' ? '$$$$' : '$$$';
+
+  // Build idea cards
+  const cards = [];
+
+  // Layout
+  const layout = [];
+  if(wants.deck){
+    const deckSize = small? '10×10 ft' : large? '16×20 ft' : '12×16 ft';
+    layout.push(`Primary **deck** (~${deckSize}) in the sunniest corner; steps down to yard.`);
+  }
+  layout.push(`Define **zones**: lounge • dining • path • green.`);
+  if(wants.walkway) layout.push(`Curated **walkway** from door to lounge using pavers; ${style.includes('zen')?'add river rock edging':'add low garden border'}.`);
+
+  // Features
+  const feat = [];
+  if(wants.pergola) feat.push('Shade **pergola** with slatted roof; train vines or hang a shade cloth.');
+  if(wants.fire) feat.push('Compact **fire feature** (propane bowl for low-smoke evenings).');
+  if(wants.planters) feat.push('Modular **planter boxes** along fence for herbs and color.');
+  if(wants.privacy) feat.push('**Privacy screen** using cedar slats or tall grasses on the windward side.');
+  if(feat.length===0) feat.push('Movable **seating set** with storage bench.');
+
+  // Materials
+  const mats = [
+    `Primary surfaces: **${material}**.`,
+    `Path: 24" concrete pavers on compacted base with polymeric sand.`,
+    `Accents: black powder‑coated posts; warm wood tones to pair with ${imageStats.dominant}.`
+  ];
+
+  // Lighting
+  const light = [
+    'Low‑glare **LED step lights** on the deck.',
+    '**String lights** under pergola ridge.',
+    '**Bollard** or **downlights** along the path; motion sensor near gate.'
+  ];
+
+  // Maintenance
+  const maint = [
+    style.includes('zen') ? 'Rake gravel lines monthly; prune shrubs for form.' :
+    'Clean surfaces every 6–12 months; check fasteners annually.',
+    'If using natural wood: seal every 1–2 years. Composite: wash with mild soap.'
+  ];
+
+  // Costs (very rough text)
+  const cost = budget==='low' ? 'Focus on DIY pavers, pressure‑treated frames, and plug‑in lighting.'
+             : budget==='high' ? 'Consider composite decking, custom steel pergola, and hardwired lighting.'
+             : 'Mix composite or cedar decking with DIY paver path and plug‑in lighting.';
+
+  // Push cards
+  cards.push({title:'Site Read', lines:[
+    `Estimated area: **${area} sq ft** (${small?'compact':large?'spacious':'mid‑size'}).`,
+    `Sun exposure: **${sun}**. Intended use: **${use}**. Style cue: **${style||'balanced modern'}**.`,
+    `Photo tone ~ **${imageStats.dominant}** • scene is **${imageStats.isBright?'bright':'shaded'}**.`
+  ]});
+  cards.push({title:'Layout Plan', lines:layout});
+  cards.push({title:'Key Features', lines:feat});
+  cards.push({title:'Materials', lines:mats});
+  cards.push({title:'Lighting', lines:light});
+  cards.push({title:'Maintenance', lines:maint});
+  cards.push({title:`Budget Strategy (${costBand})`, lines:[cost]});
+
+  renderIdeas(cards);
+  say('Here are three starting concepts. Tell me “tweak for more shade” or “swap fire for water feature” to iterate.');
+}
+
+function renderIdeas(cards){
+  ideasWrap.style.display='block';
+  ideasDiv.innerHTML='';
+  for(const c of cards){
+    const el = document.createElement('div');
+    el.className='card';
+    el.innerHTML = `<h4>${c.title}</h4>` + c.lines.map(l=>`<div>• ${l}</div>`).join('');
+    ideasDiv.appendChild(el);
+  }
+}
+
+/* Boot */
+resetBtn.click(); // initialize
+</script>
+</body>
+</html>
+
+
