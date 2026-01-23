@@ -2,474 +2,176 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Blue Orb Backyard Planner (Prototype)</title>
+<meta charset="UTF-8">
+<title>Blue Builder Helper</title>
 <style>
-  :root{
-    --bg:#0b1020;
-    --panel:#12192b;
-    --panel-2:#0e1526;
-    --text:#e7ecff;
-    --muted:#aac1ff;
-    --accent:#3b82f6;       /* Primary blue */
-    --accent-2:#60a5fa;
-    --accent-3:#93c5fd;
-    --good:#22c55e;
-    --warn:#f59e0b;
-  }
-  *{box-sizing:border-box}
-  body{
-    margin:0; font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
-    color:var(--text);
-    background: radial-gradient(1200px 600px at 70% -10%, #1b2a5a55, transparent),
-                linear-gradient(180deg, #070b14, var(--bg));
-    min-height:100svh; display:flex; flex-direction:column; gap:16px;
-  }
-  header{
-    padding:16px 20px; display:flex; align-items:center; gap:12px;
-    background:linear-gradient(180deg, #0c1429cc, #0c142980), url('data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==');
-    border-bottom:1px solid #1e2a4c;
-    position:sticky; top:0; backdrop-filter:blur(8px); z-index:5;
-  }
-  header h1{margin:0; font-weight:700; font-size:18px; letter-spacing:.2px}
-  header .pill{
-    padding:4px 10px; border:1px solid #1e2a4c; border-radius:999px; color:var(--muted);
-    background: linear-gradient(180deg, #0d1938, #0a1329);
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0f2a;
+    height: 100vh;
+    overflow: hidden;
+    font-family: Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
   }
 
-  /* Stage with Orb */
-  .stage{
-    position:relative; padding:30px 20px 10px; display:grid; gap:18px;
-    grid-template-columns: minmax(280px, 360px) 1fr;
-  }
-  @media (max-width:900px){ .stage{ grid-template-columns: 1fr; } }
-
-  .orb-wrap{
-    position:relative; display:flex; align-items:center; justify-content:center;
-    padding:16px; height:360px; background:linear-gradient(180deg, #0a1329, #0a1230);
-    border:1px solid #1e2a4c; border-radius:16px; overflow:hidden;
-  }
-  .orb{
-    width:140px; height:140px; border-radius:50%;
-    background:
-      radial-gradient(60% 60% at 35% 35%, #ffffffaa, transparent 45%),
-      radial-gradient(100% 100% at 50% 50%, var(--accent-2), var(--accent));
-    box-shadow:
-      0 0 24px 8px #3b82f644,
-      0 0 64px 24px #60a5fa33 inset,
-      0 0 200px 40px #3b82f61f;
-    filter: drop-shadow(0 8px 24px #3b82f666);
-    animation: float 4.5s ease-in-out infinite;
-    position:absolute;
-  }
-  .orb.rise{
-    animation: rise 2.4s ease forwards, glow 4s ease-in-out infinite 2.4s;
-  }
-  @keyframes float{
-    0%,100%{ transform: translateY(0) }
-    50%{ transform: translateY(-12px) }
-  }
-  @keyframes rise{
-    0%{ transform: translate(-50%, -20%); left:50%; top:50%; }
-    100%{ transform: translate(-50%, -260px); left:50%; top:0; }
-  }
-  @keyframes glow{
-    0%,100%{ box-shadow: 0 0 28px 10px #60a5fa66, 0 0 80px 12px #60a5fa44 inset }
-    50%{ box-shadow: 0 0 42px 16px #93c5fd88, 0 0 120px 20px #93c5fd66 inset }
+  /* --- BALL --- */
+  #ball {
+    width: 200px;
+    height: 200px;
+    background: radial-gradient(circle at 30% 30%, #5ea7ff, #0042a8);
+    border-radius: 50%;
+    position: absolute;
+    animation: bounce 2s infinite ease-in-out;
+    display: flex;
+    justify-content: center;
+    align-items: center;
   }
 
-  .panel{
-    background:linear-gradient(180deg, var(--panel), var(--panel-2));
-    border:1px solid #1e2a4c; border-radius:16px; padding:14px;
+  /* Bouncing effect */
+  @keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-60px); }
   }
-  .row{ display:flex; gap:8px; flex-wrap:wrap }
-  .btn{
-    appearance:none; border:1px solid #24407a; color:#dbe8ff; background:#0d1a3a;
-    padding:10px 14px; border-radius:10px; cursor:pointer;
-    transition: .15s background, .15s border, transform .06s;
+
+  /* FACE */
+  .eye {
+    width: 40px;
+    height: 40px;
+    background: white;
+    border-radius: 50%;
+    position: absolute;
+    overflow: hidden;
   }
-  .btn:hover{ background:#122458; border-color:#3158a6 }
-  .btn:active{ transform: translateY(1px) }
-  .btn.primary{ background:linear-gradient(180deg, #1d4ed8, #1e40af); border-color:#1e3a8a }
-  .btn.ghost{ background:transparent }
-  input, select, textarea{
-    background:#0b1430; color:var(--text); border:1px solid #223a6b; border-radius:10px;
-    padding:10px 12px; width:100%;
+  #eyeL { left: 50px; top: 60px; }
+  #eyeR { right: 50px; top: 60px; }
+
+  .pupil {
+    width: 20px;
+    height: 20px;
+    background: black;
+    border-radius: 50%;
+    position: absolute;
+    top: 10px;
+    left: 10px;
   }
-  label{ font-size:13px; color:var(--muted) }
 
-  /* Chat */
-  .chat{ height:340px; overflow:auto; display:flex; flex-direction:column; gap:10px; padding-right:4px }
-  .msg{ max-width:86%; padding:10px 12px; border-radius:12px; line-height:1.35 }
-  .msg.ai{ background:#0b1a3a; border:1px solid #2a4ea0; align-self:flex-start }
-  .msg.user{ background:#0f1d38; border:1px solid #27406e; align-self:flex-end }
-  .tiny{ font-size:12px; color:#b6c8ff }
+  /* SPEECH */
+  #speech {
+    position: absolute;
+    top: 70%;
+    color: white;
+    font-size: 26px;
+    text-align: center;
+    width: 100%;
+    opacity: 0;
+    transition: 1s;
+  }
 
-  /* Ideas */
-  .ideas{ display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:12px }
-  .card{ background:#0d1731; border:1px solid #1f325c; border-radius:12px; padding:12px }
-  .card h4{ margin:0 0 8px 0 }
-  .tag{ display:inline-block; margin:2px 6px 2px 0; font-size:12px; padding:4px 8px; border-radius:999px; border:1px solid #2b4380; color:#b9ccff; background:#0a142f }
+  /* Upload button */
+  #uploadBox {
+    position: absolute;
+    top: 80%;
+    text-align: center;
+    color: white;
+    font-size: 20px;
+    display: none;
+  }
 
-  /* Preview */
-  .preview{ width:100%; aspect-ratio: 4/3; object-fit:cover; border-radius:12px; border:1px solid #1f325c; background:#091128; }
+  input[type="file"] {
+    margin-top: 10px;
+    font-size: 18px;
+  }
+
+  /* BLUEPRINT MODE */
+  #blueprintScreen {
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      to bottom,
+      #08254d 0px, #08254d 1px,
+      #0a1e36 1px, #0a1e36 40px
+    );
+    display: none;
+    overflow: hidden;
+  }
+
+  .bp-line {
+    position: absolute;
+    width: 200px;
+    height: 4px;
+    background: cyan;
+    opacity: 0;
+    animation: drop 1s forwards;
+  }
+
+  @keyframes drop {
+    0% { transform: translateY(-200px); opacity: 0; }
+    100% { transform: translateY(0); opacity: 1; }
+  }
 </style>
 </head>
 <body>
 
-<header>
-  <div style="width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px #60a5fa"></div>
-  <h1>Blue Orb Backyard Planner</h1>
-  <div class="pill">Prototype • Offline</div>
-</header>
+<!-- BLUE BALL -->
+<div id="ball">
+  <div id="eyeL" class="eye"><div class="pupil"></div></div>
+  <div id="eyeR" class="eye"><div class="pupil"></div></div>
+</div>
 
-<main class="stage">
-  <!-- Left: Orb, USB Upload, Controls -->
-  <section class="orb-wrap panel">
-    <div id="orb" class="orb" style="left:50%; top:50%; transform:translate(-50%,-20%)"></div>
-    <div style="position:absolute;bottom:12px;left:12px;right:12px;">
-      <div class="row">
-        <label class="btn">
-          <input id="usb" type="file" accept="image/*,.json" hidden />
-          🔌 Connect “USB” (photo or .json)
-        </label>
-        <button id="analyze" class="btn primary">Analyze</button>
-        <button id="reset" class="btn ghost">Reset</button>
-      </div>
-      <div class="tiny" style="margin-top:6px">
-        Tip: Upload a backyard photo (JPG/PNG) or a JSON file like:
-        <code>{"length_ft":40,"width_ft":28,"budget":"medium"}</code>
-      </div>
-    </div>
-  </section>
+<div id="speech">Hi! I'm your builder helper.</div>
 
-  <!-- Right: Chat + Preview -->
-  <section class="panel" style="display:grid; grid-template-columns: 1fr 280px; gap:12px;">
-    <div style="display:flex; flex-direction:column; gap:10px; min-width:0">
-      <div id="chat" class="chat panel" style="padding:10px; background:#0a142f"></div>
-      <form id="chatForm" class="row" autocomplete="off">
-        <input id="chatInput" placeholder="Type your answer…" />
-        <button class="btn primary" type="submit">Send</button>
-      </form>
-    </div>
-    <div style="display:flex; flex-direction:column; gap:10px">
-      <img id="preview" class="preview" alt="Backyard preview" />
-      <div>
-        <label>Style preference</label>
-        <select id="style">
-          <option value="">Let the Orb decide</option>
-          <option>modern</option>
-          <option>rustic</option>
-          <option>zen</option>
-          <option>family</option>
-          <option>minimal</option>
-        </select>
-      </div>
-      <div class="row">
-        <div style="flex:1">
-          <label>Budget</label>
-          <select id="budget">
-            <option value="">—</option>
-            <option>low</option>
-            <option>medium</option>
-            <option>high</option>
-          </select>
-        </div>
-        <div style="flex:1">
-          <label>Skill</label>
-          <select id="skill">
-            <option value="">—</option>
-            <option>beginner</option>
-            <option>intermediate</option>
-            <option>advanced</option>
-          </select>
-        </div>
-      </div>
-    </div>
-  </section>
+<div id="uploadBox">
+  Upload your backyard image:<br>
+  <input id="fileInput" type="file" accept="image/*">
+</div>
 
-  <!-- Suggestions -->
-  <section id="ideasWrap" class="panel" style="display:none">
-    <h3 style="margin:4px 0 12px 0">Backyard Concepts</h3>
-    <div id="ideas" class="ideas"></div>
-  </section>
-</main>
+<div id="blueprintScreen"></div>
 
 <script>
-/* -----------------------------
-   Tiny “backend” in the browser
---------------------------------*/
-const orb = document.getElementById('orb');
-const usb = document.getElementById('usb');
-const analyzeBtn = document.getElementById('analyze');
-const resetBtn = document.getElementById('reset');
-const preview = document.getElementById('preview');
-const chat = document.getElementById('chat');
-const chatForm = document.getElementById('chatForm');
-const chatInput = document.getElementById('chatInput');
-const styleEl = document.getElementById('style');
-const budgetEl = document.getElementById('budget');
-const skillEl = document.getElementById('skill');
-const ideasWrap = document.getElementById('ideasWrap');
-const ideasDiv = document.getElementById('ideas');
-
-let imageBitmap = null;
-let metaFromUSB = {};
-let imageStats = {avg:[0,0,0], brightness:0, isBright:false, dominant:'#6aa8ff'};
-
-const state = {
-  step: 0,
-  answers: {},
-  questions: [
-    {key:'area', text:'What is your backyard size? You can say length × width in feet (e.g., 40x28) or total sq ft.'},
-    {key:'sun', text:'How sunny is it? (full sun / partial / shade)'},
-    {key:'use', text:'What’s the main use? (relaxing, entertaining, kids, pets, gardening, grilling)'},
-    {key:'feature', text:'Any must‑have features? (deck, pergola, fire pit, walkway, planters, lighting, privacy)'}
-  ]
-};
-
-function say(text){
-  const m = document.createElement('div');
-  m.className='msg ai';
-  m.textContent=text;
-  chat.appendChild(m);
-  chat.scrollTop = chat.scrollHeight;
-}
-function you(text){
-  const m = document.createElement('div');
-  m.className='msg user';
-  m.textContent=text;
-  chat.appendChild(m);
-  chat.scrollTop = chat.scrollHeight;
-}
-function askNext(){
-  if(state.step < state.questions.length){
-    say(state.questions[state.step].text);
-  }else{
-    thinkAndPropose();
-  }
-}
-
-function parseArea(str){
-  if(!str) return null;
-  const m = str.toLowerCase().replace(/\s/g,'');
-  const xy = m.match(/(\d+)\s*[x×]\s*(\d+)/);
-  if(xy) return (+xy[1])*(+xy[2]);
-  const sq = m.match(/(\d+)\s*(sq|sf|ft2|ft²|feet|ft)/);
-  if(sq) return +sq[1];
-  const num = m.match(/^\d+$/);
-  if(num) return +num[0];
-  return null;
-}
-
-/* Simple image analysis: average color + brightness */
-async function analyzeImage(file){
-  try{
-    const bmp = await createImageBitmap(file);
-    imageBitmap = bmp;
-    const canvas = new OffscreenCanvas(bmp.width, bmp.height);
-    const ctx = canvas.getContext('2d');
-    // sample down to speed up
-    const s = Math.max(1, Math.floor(Math.min(bmp.width,bmp.height)/240));
-    const w = Math.floor(bmp.width/s), h = Math.floor(bmp.height/s);
-    canvas.width = w; canvas.height = h;
-    ctx.drawImage(bmp,0,0,w,h);
-    const img = ctx.getImageData(0,0,w,h).data;
-    let r=0,g=0,b=0,c=0, bright=0;
-    for(let i=0;i<img.length;i+=4){
-      r+=img[i]; g+=img[i+1]; b+=img[i+2];
-      const Y = .2126*img[i]+.7152*img[i+1]+.0722*img[i+2];
-      bright+=Y; c++;
-    }
-    r=Math.round(r/c); g=Math.round(g/c); b=Math.round(b/c);
-    const hex = '#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
-    const br = bright/c;
-    imageStats = {avg:[r,g,b], brightness:br, isBright: br>140, dominant:hex};
-  }catch(e){
-    console.warn('Image analysis failed', e);
-  }
-}
-
-usb.addEventListener('change', async (e)=>{
-  const f = e.target.files?.[0];
-  if(!f) return;
-  if(f.type.startsWith('image/')){
-    preview.src = URL.createObjectURL(f);
-    await analyzeImage(f);
-    say('USB connected. I see your photo. Nice space! I’ll ask a few quick questions.');
-  }else if(f.name.endsWith('.json')){
-    try{
-      const txt = await f.text();
-      metaFromUSB = JSON.parse(txt);
-      say('USB connected. I loaded your yard data JSON.');
-      if(metaFromUSB.photoDataUrl){ preview.src = metaFromUSB.photoDataUrl; }
-    }catch(err){
-      say('I could not read the JSON. Make sure it is valid.');
-    }
-  }else{
-    say('Please upload a backyard photo (jpg/png) or a .json file.');
-  }
+/* ---- EYE TRACKING ---- */
+document.addEventListener("mousemove", e => {
+  document.querySelectorAll('.pupil').forEach(pupil => {
+    const rect = pupil.parentElement.getBoundingClientRect();
+    const x = e.clientX - (rect.left + rect.width/2);
+    const y = e.clientY - (rect.top + rect.height/2);
+    const angle = Math.atan2(y, x);
+    pupil.style.transform = `translate(${Math.cos(angle)*6}px, ${Math.sin(angle)*6}px)`;
+  });
 });
 
-resetBtn.addEventListener('click', ()=>{
-  chat.innerHTML = '';
-  ideasWrap.style.display = 'none';
-  ideasDiv.innerHTML = '';
-  preview.removeAttribute('src');
-  imageBitmap=null; metaFromUSB={}; imageStats={avg:[0,0,0], brightness:0, isBright:false, dominant:'#6aa8ff'};
-  Object.assign(state, {step:0, answers:{}});
-  orb.classList.remove('rise');
-  say('Hi, I am your Blue Orb. Plug in your “USB” and press Analyze to begin.');
-});
+/* ---- INTRO ---- */
+setTimeout(() => {
+  document.getElementById("speech").style.opacity = 1;
 
-analyzeBtn.addEventListener('click', ()=>{
-  orb.classList.add('rise');
-  ideasWrap.style.display='none';
-  ideasDiv.innerHTML='';
-  // seed defaults from right-side controls or JSON
-  state.answers.budget = budgetEl.value || metaFromUSB.budget || '';
-  state.answers.style = (styleEl.value || metaFromUSB.style || '').toLowerCase();
-  state.answers.skill = (skillEl.value || metaFromUSB.skill || '').toLowerCase();
-  // kickoff Q&A
-  say('Rising to scan your yard…');
-  setTimeout(()=>{
-    say('Scan complete. Let’s personalize your plan.');
-    askNext();
-  }, 1000);
-});
+  setTimeout(() => {
+    document.getElementById("uploadBox").style.display = "block";
+  }, 1500);
+}, 800);
 
-chatForm.addEventListener('submit', (e)=>{
-  e.preventDefault();
-  const val = chatInput.value.trim();
-  if(!val) return;
-  you(val);
-  if(state.step < state.questions.length){
-    const q = state.questions[state.step];
-    state.answers[q.key] = val;
-    state.step++;
-    askNext();
+/* ---- BLUEPRINT MODE ---- */
+document.getElementById("fileInput").addEventListener("change", () => {
+  document.getElementById("blueprintScreen").style.display = "block";
+
+  // create falling blueprint lines
+  for (let i = 0; i < 20; i++) {
+    let line = document.createElement("div");
+    line.className = "bp-line";
+    line.style.left = Math.random() * window.innerWidth + "px";
+    line.style.top = Math.random() * window.innerHeight + "px";
+    line.style.animationDelay = i * 0.1 + "s";
+    document.getElementById("blueprintScreen").appendChild(line);
   }
-  chatInput.value='';
+
+  // hide main elements
+  document.getElementById("ball").style.display = "none";
+  document.getElementById("speech").style.display = "none";
+  document.getElementById("uploadBox").style.display = "none";
 });
-
-/* -----------------------------
-   Idea generation (heuristics)
---------------------------------*/
-function thinkAndPropose(){
-  say('Thanks! Generating concepts for your backyard…');
-
-  // Parse + normalize inputs
-  const areaUsb = metaFromUSB.length_ft && metaFromUSB.width_ft
-    ? metaFromUSB.length_ft*metaFromUSB.width_ft : metaFromUSB.area_sqft;
-  const area = parseArea(state.answers.area) || areaUsb || 600; // default
-  const budget = (state.answers.budget || budgetEl.value || metaFromUSB.budget || 'medium').toLowerCase();
-  const style = (state.answers.style || styleEl.value || metaFromUSB.style || '').toLowerCase();
-  const sun = (state.answers.sun||'').toLowerCase() || (imageStats.isBright ? 'full sun' : 'partial');
-  const use = (state.answers.use||'entertaining').toLowerCase();
-  const features = (state.answers.feature||'').toLowerCase();
-  const skill = (state.answers.skill || skillEl.value || 'beginner');
-
-  // Simple sizing
-  const small = area < 400, large = area > 900;
-
-  // Feature picks based on signals
-  const wants = {
-    deck: /deck/.test(features) || use.includes('entertain'),
-    pergola: /pergola|shade/.test(features) || sun.includes('full'),
-    fire: /fire/.test(features) || (budget!=='low' && !sun.includes('full')),
-    planters: /planter|garden/.test(features) || style.includes('modern') || style.includes('zen'),
-    walkway: /path|walk/.test(features) || true,
-    lighting: /light/.test(features) || true,
-    privacy: /privacy|screen|fence/.test(features) || use.includes('relax'),
-    turf: /low|maint/.test(features) || (budget==='low' && !use.includes('garden')),
-  };
-
-  // Materials and rough ranges (very rough placeholders)
-  const material = style.includes('modern') ? 'composite + steel accents'
-                : style.includes('zen') ? 'ipe or cedar + stone'
-                : style.includes('rustic') ? 'pressure‑treated pine + gravel'
-                : 'composite or cedar';
-  const costBand = budget==='low' ? '$$' : budget==='high' ? '$$$$' : '$$$';
-
-  // Build idea cards
-  const cards = [];
-
-  // Layout
-  const layout = [];
-  if(wants.deck){
-    const deckSize = small? '10×10 ft' : large? '16×20 ft' : '12×16 ft';
-    layout.push(`Primary **deck** (~${deckSize}) in the sunniest corner; steps down to yard.`);
-  }
-  layout.push(`Define **zones**: lounge • dining • path • green.`);
-  if(wants.walkway) layout.push(`Curated **walkway** from door to lounge using pavers; ${style.includes('zen')?'add river rock edging':'add low garden border'}.`);
-
-  // Features
-  const feat = [];
-  if(wants.pergola) feat.push('Shade **pergola** with slatted roof; train vines or hang a shade cloth.');
-  if(wants.fire) feat.push('Compact **fire feature** (propane bowl for low-smoke evenings).');
-  if(wants.planters) feat.push('Modular **planter boxes** along fence for herbs and color.');
-  if(wants.privacy) feat.push('**Privacy screen** using cedar slats or tall grasses on the windward side.');
-  if(feat.length===0) feat.push('Movable **seating set** with storage bench.');
-
-  // Materials
-  const mats = [
-    `Primary surfaces: **${material}**.`,
-    `Path: 24" concrete pavers on compacted base with polymeric sand.`,
-    `Accents: black powder‑coated posts; warm wood tones to pair with ${imageStats.dominant}.`
-  ];
-
-  // Lighting
-  const light = [
-    'Low‑glare **LED step lights** on the deck.',
-    '**String lights** under pergola ridge.',
-    '**Bollard** or **downlights** along the path; motion sensor near gate.'
-  ];
-
-  // Maintenance
-  const maint = [
-    style.includes('zen') ? 'Rake gravel lines monthly; prune shrubs for form.' :
-    'Clean surfaces every 6–12 months; check fasteners annually.',
-    'If using natural wood: seal every 1–2 years. Composite: wash with mild soap.'
-  ];
-
-  // Costs (very rough text)
-  const cost = budget==='low' ? 'Focus on DIY pavers, pressure‑treated frames, and plug‑in lighting.'
-             : budget==='high' ? 'Consider composite decking, custom steel pergola, and hardwired lighting.'
-             : 'Mix composite or cedar decking with DIY paver path and plug‑in lighting.';
-
-  // Push cards
-  cards.push({title:'Site Read', lines:[
-    `Estimated area: **${area} sq ft** (${small?'compact':large?'spacious':'mid‑size'}).`,
-    `Sun exposure: **${sun}**. Intended use: **${use}**. Style cue: **${style||'balanced modern'}**.`,
-    `Photo tone ~ **${imageStats.dominant}** • scene is **${imageStats.isBright?'bright':'shaded'}**.`
-  ]});
-  cards.push({title:'Layout Plan', lines:layout});
-  cards.push({title:'Key Features', lines:feat});
-  cards.push({title:'Materials', lines:mats});
-  cards.push({title:'Lighting', lines:light});
-  cards.push({title:'Maintenance', lines:maint});
-  cards.push({title:`Budget Strategy (${costBand})`, lines:[cost]});
-
-  renderIdeas(cards);
-  say('Here are three starting concepts. Tell me “tweak for more shade” or “swap fire for water feature” to iterate.');
-}
-
-function renderIdeas(cards){
-  ideasWrap.style.display='block';
-  ideasDiv.innerHTML='';
-  for(const c of cards){
-    const el = document.createElement('div');
-    el.className='card';
-    el.innerHTML = `<h4>${c.title}</h4>` + c.lines.map(l=>`<div>• ${l}</div>`).join('');
-    ideasDiv.appendChild(el);
-  }
-}
-
-/* Boot */
-resetBtn.click(); // initialize
 </script>
 </body>
 </html>
+
 
 
