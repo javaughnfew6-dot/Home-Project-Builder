@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Blue Builder Helper — Backyard Blueprint</title>
 
 <style>
@@ -18,300 +18,167 @@
   }
 
   *{ box-sizing:border-box; }
-
   html,body{ height:100%; }
-
   body{
-    margin:0;
-    font:16px/1.4 Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial;
-    background:var(--bg);
-    color:var(--text);
-    overflow:hidden;
+    margin:0; font:16px/1.4 Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial;
+    background:var(--bg); color:var(--text); overflow:hidden;
   }
 
-  /* MAIN APP */
-  .app{
-    position:relative;
-    width:100%;
-    height:100%;
-  }
+  /* MAIN STAGE */
+  .app{ position:relative; width:100%; height:100%; }
 
-  /* BACKGROUND PHOTO */
-  .photo-underlay{
-    position:absolute;
-    inset:0;
-    width:100%;
-    height:100%;
-    object-fit:cover;
-    opacity:.14;
-    filter:saturate(0) contrast(1.1) brightness(.9);
-    pointer-events:none;
-  }
+  /* (We keep the photo element but don’t show it full screen anymore) */
+  .photo-underlay{ display:none; }
 
   /* ORB */
   .orb{
     --size:180px;
-    position:absolute;
-    left:50%;
-    top:58%;
-    transform:translate(-50%,-50%);
-    width:var(--size);
-    height:var(--size);
-    border-radius:50%;
+    position:absolute; left:50%; top:58%; transform:translate(-50%,-50%);
+    width:var(--size); height:var(--size); border-radius:50%;
     background:
       radial-gradient(65% 65% at 35% 30%, #ffffffaa, transparent 45%),
       radial-gradient(100% 100% at 50% 50%, var(--accent2), var(--accent));
-    box-shadow:
-      0 10px 40px #3b82f666,
-      inset 0 0 120px #60a5fa44;
-    display:flex;
-    align-items:center;
-    justify-content:center;
+    box-shadow: 0 10px 40px #3b82f666, inset 0 0 120px #60a5fa44;
+    display:flex; align-items:center; justify-content:center;
     animation:bounce 2s ease-in-out infinite;
     z-index:10;
   }
-
   .orb.dock{
     animation:none;
     transition:transform .9s ease, top .9s ease, left .9s ease, width .6s ease, height .6s ease;
-    top:70px;
-    left:50%;
-    transform:translate(-50%,0);
-    width:120px;
-    height:120px;
+    top:70px; left:50%; transform:translate(-50%,0); width:120px; height:120px;
   }
+  @keyframes bounce{ 0%,100%{transform:translate(-50%,-50%)} 50%{transform:translate(-50%,-60%)} }
 
-  @keyframes bounce{
-    0%,100%{ transform:translate(-50%,-50%) }
-    50%{ transform:translate(-50%,-60%) }
-  }
+  .eye{ width:38px; height:38px; background:#fff; border-radius:50%; position:absolute; overflow:hidden; }
+  .eye .pupil{ width:18px; height:18px; background:#000; border-radius:50%; position:absolute; top:10px; left:10px; transition:transform .05s linear; }
+  .eyeL{ left:44px; top:56px } .eyeR{ right:44px; top:56px }
+  .mouth{ position:absolute; bottom:42px; left:50%; transform:translateX(-50%); width:56px; height:18px;
+    border-radius:0 0 40px 40px / 0 0 18px 18px; background:#001a4d66; border:2px solid #001a4d99; border-top:none; }
 
-  .eye{
-    width:38px;
-    height:38px;
-    background:#fff;
-    border-radius:50%;
-    position:absolute;
-    overflow:hidden;
-  }
-  .eye .pupil{
-    width:18px;
-    height:18px;
-    background:#000;
-    border-radius:50%;
-    position:absolute;
-    top:10px;
-    left:10px;
-    transition:transform .05s linear;
-  }
-
-  .eyeL{ left:44px; top:56px; }
-  .eyeR{ right:44px; top:56px; }
-
-  .mouth{
-    position:absolute;
-    bottom:42px;
-    left:50%;
-    transform:translateX(-50%);
-    width:56px;
-    height:18px;
-    border-radius:0 0 40px 40px / 0 0 18px 18px;
-    background:#001a4d66;
-    border:2px solid #001a4d99;
-    border-top:none;
-  }
-
-  /* GREETING TEXT */
+  /* GREETING + CONTROLS */
   .greet{
-    position:absolute;
-    top:calc(58% + 130px);
-    left:50%;
-    transform:translateX(-50%);
-    font-size:24px;
-    text-align:center;
-    opacity:0;
-    transition:opacity .8s;
-    z-index:9;
+    position:absolute; top:calc(58% + 130px); left:50%; transform:translateX(-50%);
+    font-size:24px; text-align:center; opacity:0; transition:opacity .8s; z-index:9;
   }
-
-  .greet.show{ opacity:1; }
-
-  /* MAIN CONTROLS */
+  .greet.show{ opacity:1 }
   .controls{
-    position:absolute;
-    top:calc(58% + 200px);
-    left:50%;
-    transform:translateX(-50%);
-    display:flex;
-    gap:12px;
-    flex-wrap:wrap;
-    justify-content:center;
-    z-index:9;
+    position:absolute; left:50%; top:calc(58% + 200px); transform:translateX(-50%);
+    display:flex; gap:12px; flex-wrap:wrap; justify-content:center; z-index:9;
   }
+  .btn{ appearance:none; cursor:pointer; border:1px solid #2a4ea0; color:#e5eeff; background:#0d1a3a; padding:10px 14px; border-radius:10px; font-weight:600; }
+  .btn.primary{ background:linear-gradient(180deg,#1d4ed8,#1e40af); border-color:#1e3a8a; }
 
-  .btn{
-    appearance:none;
-    cursor:pointer;
-    border:1px solid #2a4ea0;
-    background:#0d1a3a;
-    padding:10px 14px;
-    border-radius:10px;
-    color:#e5eeff;
-    font-weight:600;
-  }
-
-  .btn.primary{
-    background:linear-gradient(180deg,#1d4ed8,#1e40af);
-    border-color:#1e3a8a;
-  }
-
-  /* SETTINGS PANEL */
+  /* SETTINGS PANEL (More Options) */
   .panel{
-    position:absolute;
-    top:14px;
-    right:14px;
-    width:360px;
-    max-width:94vw;
-    background:#0b1533cc;
-    border:1px solid #1e2a4c;
-    border-radius:12px;
-    padding:12px;
-    backdrop-filter:blur(7px);
-    z-index:12;
+    position:absolute; right:14px; top:14px; z-index:12;
+    width:360px; max-width:94vw;
+    background:#0b1533cc; border:1px solid #1e2a4c; border-radius:12px; padding:12px; backdrop-filter: blur(7px);
     display:none;
   }
+  .panel h3{ margin:0 0 10px 0; font-size:17px }
+  .row{ display:flex; gap:10px; flex-wrap:wrap; margin-bottom:8px }
+  label{ font-size:14px; color:var(--muted) }
+  input,select{ width:100%; padding:8px 10px; border-radius:10px; border:1px solid #223a6b; background:#0b1430; color:var(--text) }
+  .check{ display:flex; align-items:center; gap:8px; color:#d7e4ff; font-size:14px }
+  .small{ font-size:12px; color:#a9bdff }
 
-  .panel h3{
-    margin:0 0 10px 0;
-    font-size:17px;
+  /* COLOR PICKERS (new) */
+  .colors-grid{
+    display:grid; grid-template-columns:repeat(3, 1fr); gap:8px;
   }
+  .color-cell{ display:flex; flex-direction:column; gap:6px; }
+  .color-cell span{ font-size:12px; color:#cdd9ff }
+  .color-cell input[type="color"]{ width:100%; height:34px; padding:0; border:none; border-radius:8px; background:#0b1430 }
 
-  .row{
-    display:flex;
-    gap:10px;
-    flex-wrap:wrap;
-    margin-bottom:6px;
-  }
-
-  label{ font-size:14px; color:var(--muted); }
-
-  input,select{
-    width:100%;
-    padding:8px 10px;
-    border-radius:10px;
-    border:1px solid #223a6b;
-    background:#0b1430;
-    color:var(--text);
-  }
-
-  .check{
-    display:flex;
-    align-items:center;
-    gap:8px;
-    color:#d7e4ff;
-    font-size:14px;
-  }
-
-  .small{
-    font-size:12px;
-    color:#a9bdff;
-  }
-
-  /* BLUEPRINT */
+  /* BLUEPRINT BACKDROP */
   .blueprint{
-    position:absolute;
-    inset:0;
-    display:none;
-    z-index:4;
+    position:absolute; inset:0; z-index:4; display:none;
     background:
-      linear-gradient(90deg,var(--grid2) 1px, transparent 1px) / 40px 40px repeat,
-      linear-gradient(0deg,var(--grid2) 1px, transparent 1px) / 40px 40px repeat,
-      linear-gradient(90deg,var(--grid) 1px, transparent 1px) / 200px 200px repeat,
-      linear-gradient(0deg,var(--grid) 1px, transparent 1px) / 200px 200px repeat,
-      linear-gradient(180deg,#071331,#091a3d);
+      linear-gradient(90deg,var(--grid2) 1px, transparent 1px) left top / 40px 40px repeat,
+      linear-gradient(0deg ,var(--grid2) 1px, transparent 1px) left top / 40px 40px repeat,
+      linear-gradient(90deg,var(--grid) 1px, transparent 1px) left top / 200px 200px repeat,
+      linear-gradient(0deg ,var(--grid) 1px, transparent 1px) left top / 200px 200px repeat,
+      linear-gradient(180deg, #071331, #091a3d);
   }
+  svg{ width:100%; height:100% }
 
-  svg{
-    width:100%;
-    height:100%;
-  }
+  /* Toolbar */
+  .toolbar{ position:absolute; left:14px; top:14px; z-index:12; display:none; gap:8px }
 
-  /* TOOLBAR */
-  .toolbar{
-    position:absolute;
-    top:14px;
-    left:14px;
-    display:none;
-    gap:8px;
-    z-index:12;
-  }
+  /* Falling reveal */
+  .fall{ opacity:0; transform:translateY(-160px); animation:fallIn .7s forwards; }
+  @keyframes fallIn{ to{ opacity:1; transform:translateY(0) } }
 
-  /* FALL ANIM */
-  .fall{
-    opacity:0;
-    transform:translateY(-160px);
-    animation:fallIn .7s forwards;
-  }
-  @keyframes fallIn{
-    to{ opacity:1; transform:translateY(0); }
-  }
-
-  /* 3D FEATURE STYLING (combined A + B) */
+  /* 3D CLICKED GROUP */
   g.floating3D{
-    cursor:grab;
-    transition:transform .2s ease, filter .2s ease;
-    transform-origin:center center;
-    filter:drop-shadow(0px 14px 18px rgba(0,0,0,0.55));
+    cursor:grab; transform-origin:center center;
+    transition: transform .2s ease, filter .2s ease;
+    filter: drop-shadow(0px 14px 18px rgba(0,0,0,0.55));
   }
-  g.floating3D:active{
-    cursor:grabbing;
+  g.floating3D:active{ cursor:grabbing }
+
+  /* --- Reference Photo Thumbnail (top-right) --- */
+  .ref-thumb{
+    position:absolute; top:14px; right:14px; z-index:11;
+    width:320px; height:200px; padding:8px;
+    border-radius:12px; border:1px solid #1e2a4c;
+    background:
+      linear-gradient(90deg,var(--grid2) 1px, transparent 1px) left top / 20px 20px repeat,
+      linear-gradient(0deg ,var(--grid2) 1px, transparent 1px) left top / 20px 20px repeat,
+      linear-gradient(180deg,#071331,#0a1a3f);
+    box-shadow:0 8px 22px #00000055;
+    display:none;
   }
+  .ref-thumb header{
+    display:flex; align-items:center; justify-content:space-between;
+    font-size:13px; color:#bcd7ff; margin-bottom:6px;
+  }
+  .ref-thumb canvas{
+    width:100%; height:calc(100% - 24px); display:block; border-radius:8px; border:1px solid #21396d;
+    background:#04122e; /* fallback */
+  }
+
+  /* When panel is open, push the reference down so both are visible */
+  body.panel-open .ref-thumb{ top:230px; }
 
 </style>
 </head>
-
 <body>
 
 <div class="app" id="app">
-
+  <!-- Hidden base photo; we now show the blueprint-styled thumbnail instead -->
   <img id="photo" class="photo-underlay" alt="">
 
   <!-- ORB -->
-  <div id="orb" class="orb">
+  <div id="orb" class="orb" aria-live="polite">
     <div class="eye eyeL"><div class="pupil"></div></div>
     <div class="eye eyeR"><div class="pupil"></div></div>
     <div class="mouth"></div>
   </div>
 
-  <!-- GREETING -->
-  <div id="greet" class="greet">
-    Hi! I’m your builder helper.<br>
-    Upload your backyard and I’ll sketch a plan.
-  </div>
-
-  <!-- MAIN CONTROLS -->
+  <!-- Greeting + Controls -->
+  <div id="greet" class="greet">Hi! I’m your builder helper.<br/>Upload your backyard and I’ll sketch a plan.</div>
   <div class="controls" id="controls">
     <label class="btn">
-      <input id="file" type="file" accept="image/*" hidden>
+      <input id="file" type="file" accept="image/*" hidden/>
       🔌 Upload Backyard Photo
     </label>
     <button id="openPanel" class="btn">More Options</button>
     <button id="quick" class="btn primary">Generate Blueprint</button>
   </div>
 
-  <!-- SETTINGS PANEL -->
+  <!-- Options Panel -->
   <div id="panel" class="panel">
     <h3>Backyard Settings</h3>
-
     <div class="row">
       <div style="flex:1">
         <label>Length (ft)</label>
-        <input id="lenFt" type="number" value="40" min="10" max="200">
+        <input id="lenFt" type="number" min="10" max="200" value="40"/>
       </div>
-
       <div style="flex:1">
         <label>Width (ft)</label>
-        <input id="widFt" type="number" value="28" min="10" max="200">
+        <input id="widFt" type="number" min="10" max="200" value="28"/>
       </div>
     </div>
 
@@ -326,7 +193,6 @@
           <option value="modern">Modern</option>
         </select>
       </div>
-
       <div style="flex:1">
         <label>Budget</label>
         <select id="budget">
@@ -338,144 +204,218 @@
       </div>
     </div>
 
-    <div style="margin:8px 0 4px 0;">
-      <label>Features (auto or choose):</label>
-    </div>
-
+    <div style="margin:8px 0 4px 0;"><label>Features (auto or choose):</label></div>
     <div class="row">
       <label class="check"><input id="f_pool" type="checkbox"> Pool</label>
       <label class="check"><input id="f_zen" type="checkbox"> Zen garden</label>
       <label class="check"><input id="f_deck" type="checkbox" checked> Deck</label>
-     input id="f_perg" type="checkbox" checked> Pergola</label>
+      <label class="check"><input id="f_perg" type="checkbox" checked> Pergola</label>
       <label class="check"><input id="f_path" type="checkbox" checked> Path</label>
       <label class="check"><input id="f_fire" type="checkbox"> Fire pit</label>
       <label class="check"><input id="f_beds" type="checkbox" checked> Planter beds</label>
     </div>
 
-    <div class="row" style="margin-top:10px;">
+    <!-- NEW: Feature Colors -->
+    <div style="margin:8px 0 4px 0;"><label>Colors (applies to selected features):</label></div>
+    <div class="colors-grid">
+      <div class="color-cell"><span>Pool</span><input id="c_pool" type="color" value="#60A5FA"></div>
+      <div class="color-cell"><span>Zen</span><input id="c_zen" type="color" value="#22D3EE"></div>
+      <div class="color-cell"><span>Path</span><input id="c_path" type="color" value="#93C5FD"></div>
+      <div class="color-cell"><span>Deck</span><input id="c_deck" type="color" value="#A78BFA"></div>
+      <div class="color-cell"><span>Pergola</span><input id="c_perg" type="color" value="#7DD3FC"></div>
+      <div class="color-cell"><span>Fire pit</span><input id="c_fire" type="color" value="#F59E0B"></div>
+      <div class="color-cell"><span>Beds</span><input id="c_beds" type="color" value="#34D399"></div>
+    </div>
+
+    <div class="row" style="margin-top:10px">
       <button id="generate" class="btn primary">Generate Blueprint</button>
       <button id="closePanel" class="btn">Close</button>
     </div>
-
-    <div class="small" style="margin-top:6px;">
-      Tip: leave features unchecked to let the Orb decide.
-    </div>
+    <div class="small" style="margin-top:6px">Tip: leave features unchecked to let the Orb decide.</div>
   </div>
 
-  <!-- BLUEPRINT CANVAS -->
+  <!-- Blueprint Canvas -->
   <div id="blueprint" class="blueprint">
     <svg id="bpSvg" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice"></svg>
   </div>
 
-  <!-- TOOLBAR -->
+  <!-- Toolbar -->
   <div id="toolbar" class="toolbar">
     <button id="regen" class="btn">🔁 Regenerate</button>
     <button id="export" class="btn primary">⬇️ Export SVG</button>
   </div>
 
+  <!-- NEW: Reference Photo Thumbnail (Blueprint styled) -->
+  <aside id="refThumb" class="ref-thumb">
+    <header><span>Reference Photo</span><span style="opacity:.7">blueprint view</span></header>
+    <canvas id="refCanvas" width="640" height="380" aria-label="Reference blueprint thumbnail"></canvas>
+  </aside>
 </div>
+
 <script>
-/* -------------------------------------------
-   ELEMENT REFERENCES
---------------------------------------------*/
-const orb = document.getElementById("orb");
-const pupils = document.querySelectorAll(".pupil");
-const greet = document.getElementById("greet");
-const photo = document.getElementById("photo");
-const panel = document.getElementById("panel");
-const blueprint = document.getElementById("blueprint");
-const svg = document.getElementById("bpSvg");
-const toolbar = document.getElementById("toolbar");
-const controls = document.getElementById("controls");
+/* ---------------------------
+  BASIC ELEMENTS + SHORTCUTS
+----------------------------*/
+const orb = document.getElementById('orb');
+const pupils = document.querySelectorAll('.pupil');
+const greet = document.getElementById('greet');
+const photo = document.getElementById('photo');
+const panel = document.getElementById('panel');
+const blueprint = document.getElementById('blueprint');
+const svg = document.getElementById('bpSvg');
+const toolbar = document.getElementById('toolbar');
+const controls = document.getElementById('controls');
+const refThumb = document.getElementById('refThumb');
+const refCanvas = document.getElementById('refCanvas');
+const ctx = refCanvas.getContext('2d');
 
-/* -------------------------------------------
-   EYE TRACKING
---------------------------------------------*/
-setTimeout(() => greet.classList.add("show"), 600);
+// Inputs
+const lenFt = document.getElementById('lenFt');
+const widFt = document.getElementById('widFt');
+const vibeSel = document.getElementById('vibe');
+const budgetSel = document.getElementById('budget');
 
-document.addEventListener("mousemove", e => {
-  document.querySelectorAll(".eye").forEach(eye => {
-    const rect = eye.getBoundingClientRect();
-    const cx = rect.left + rect.width / 2;
-    const cy = rect.top + rect.height / 2;
-    const angle = Math.atan2(e.clientY - cy, e.clientX - cx);
-    const dx = Math.cos(angle) * 7;
-    const dy = Math.sin(angle) * 7;
-    eye.querySelector(".pupil").style.transform = `translate(${dx}px, ${dy}px)`;
+const f_pool = document.getElementById('f_pool');
+const f_zen  = document.getElementById('f_zen');
+const f_deck = document.getElementById('f_deck');
+const f_perg = document.getElementById('f_perg');
+const f_path = document.getElementById('f_path');
+const f_fire = document.getElementById('f_fire');
+const f_beds = document.getElementById('f_beds');
+
+// Color pickers
+const c_pool = document.getElementById('c_pool');
+const c_zen  = document.getElementById('c_zen');
+const c_path = document.getElementById('c_path');
+const c_deck = document.getElementById('c_deck');
+const c_perg = document.getElementById('c_perg');
+const c_fire = document.getElementById('c_fire');
+const c_beds = document.getElementById('c_beds');
+
+/* ---------------------------
+  EYES + GREETING
+----------------------------*/
+setTimeout(()=>greet.classList.add('show'), 600);
+
+document.addEventListener('mousemove', e=>{
+  document.querySelectorAll('.eye').forEach(eye=>{
+    const r = eye.getBoundingClientRect();
+    const cx=r.left+r.width/2, cy=r.top+r.height/2;
+    const ang = Math.atan2(e.clientY-cy, e.clientX-cx);
+    const dx=Math.cos(ang)*7, dy=Math.sin(ang)*7;
+    eye.querySelector('.pupil').style.transform=`translate(${dx}px,${dy}px)`;
   });
 });
 
-/* -------------------------------------------
-   PHOTO UPLOAD
---------------------------------------------*/
-document.getElementById("file").addEventListener("change", () => {
-  const f = document.getElementById("file").files[0];
-  if (!f) return;
-  photo.src = URL.createObjectURL(f);
-  greet.innerHTML = `Nice! I'll sketch ideas on a blueprint.<br><b>Click Generate Blueprint.</b>`;
+/* ---------------------------
+  PANEL TOGGLE
+----------------------------*/
+document.getElementById('openPanel').onclick=()=>{ panel.style.display='block'; document.body.classList.add('panel-open'); };
+document.getElementById('closePanel').onclick=()=>{ panel.style.display='none'; document.body.classList.remove('panel-open'); };
+
+/* ---------------------------
+  FILE → REF THUMB (BLUEPRINT look)
+----------------------------*/
+document.getElementById('file').addEventListener('change', ()=>{
+  const f = document.getElementById('file').files?.[0];
+  if(!f) return;
+
+  const img = new Image();
+  img.onload = ()=>{
+    // Fit into canvas while preserving aspect
+    const cw = refCanvas.width, ch = refCanvas.height;
+    ctx.clearRect(0,0,cw,ch);
+
+    // Cover fit
+    const ir = img.width/img.height, cr = cw/ch;
+    let dw, dh, dx, dy;
+    if(ir > cr){ dh = ch; dw = ir*dh; dx = (cw-dw)/2; dy = 0; }
+    else { dw = cw; dh = dw/ir; dx = 0; dy = (ch-dh)/2; }
+
+    // Apply blueprint-ish filter while drawing
+    ctx.filter = 'grayscale(1) contrast(1.25) brightness(0.9)';
+    ctx.drawImage(img, dx, dy, dw, dh);
+
+    // Cyan tint overlay
+    ctx.save();
+    ctx.globalCompositeOperation='screen';
+    ctx.fillStyle='#1e90ff';
+    ctx.globalAlpha = 0.55;
+    ctx.fillRect(0,0,cw,ch);
+    ctx.restore();
+
+    // Soft vignette for blueprint vibe
+    const g = ctx.createRadialGradient(cw*0.5, ch*0.5, ch*0.1, cw*0.5, ch*0.5, ch*0.75);
+    g.addColorStop(0,'rgba(0,0,0,0)');
+    g.addColorStop(1,'rgba(0,0,0,0.25)');
+    ctx.fillStyle=g; ctx.fillRect(0,0,cw,ch);
+
+    refThumb.style.display='block';
+  };
+  img.src = URL.createObjectURL(f);
+
+  // Update greeting
+  greet.innerHTML = "Nice! I'll sketch ideas on a blueprint.<br/>Click <b>Generate Blueprint</b>.";
 });
 
-/* -------------------------------------------
-   UI BUTTONS
---------------------------------------------*/
-document.getElementById("openPanel").onclick = () => panel.style.display = "block";
-document.getElementById("closePanel").onclick = () => panel.style.display = "none";
-document.getElementById("quick").onclick = () => generate();
-document.getElementById("generate").onclick = () => generate();
-document.getElementById("regen").onclick = () => generate(true);
-document.getElementById("export").onclick = exportSVG;
+/* ---------------------------
+  UI ACTIONS
+----------------------------*/
+document.getElementById('quick').onclick = ()=>generate();
+document.getElementById('generate').onclick = ()=>generate();
+document.getElementById('regen').onclick = ()=>generate(true);
+document.getElementById('export').onclick = exportSVG;
 
-/* -------------------------------------------
-   GENERATION UTILITIES
---------------------------------------------*/
-function clearSVG(){
-  while (svg.firstChild) svg.removeChild(svg.firstChild);
-}
-
+/* ---------------------------
+  SVG HELPERS
+----------------------------*/
+function clearSVG(){ while(svg.firstChild) svg.removeChild(svg.firstChild); }
 function add(el){ svg.appendChild(el); return el; }
-
-function elem(tag, attrs = {}, cls = ""){
-  const e = document.createElementNS("http://www.w3.org/2000/svg", tag);
+function elem(tag, attrs={}, cls=''){
+  const e = document.createElementNS('http://www.w3.org/2000/svg', tag);
   for(const k in attrs) e.setAttribute(k, attrs[k]);
-  if (cls) e.setAttribute("class", cls);
+  if(cls) e.setAttribute('class', cls);
   return e;
 }
+function textAt(t,x,y){
+  const tx = elem('text',{x,y, fill:'#67e8f9', 'font-size':12, 'text-anchor':'start'});
+  tx.textContent = t; return tx;
+}
+function labelText(t,x,y){ const tx = elem('text',{x,y, fill:'#67e8f9', 'font-size':14}); tx.textContent=t; add(tx); }
 
-function textAt(t, x, y){
-  const tx = elem("text", { x, y, fill:"#67e8f9", "font-size":12 });
-  tx.textContent = t;
-  return tx;
+/* Color helper: hex → rgba with variable alpha */
+function hexToRgba(hex, a=0.22){
+  const c = hex.replace('#','');
+  const bigint = parseInt(c.length===3 ? c.split('').map(ch=>ch+ch).join('') : c, 16);
+  const r=(bigint>>16)&255, g=(bigint>>8)&255, b=bigint&255;
+  return `rgba(${r},${g},${b},${a})`;
 }
 
-function labelText(t, x, y){
-  const tx = elem("text", { x, y, fill:"#67e8f9", "font-size":14 });
-  tx.textContent = t;
-  add(tx);
-}
-
-/* -------------------------------------------
-   BLUEPRINT GENERATION
---------------------------------------------*/
-function generate(isRegen = false){
-  if (!isRegen){
-    orb.classList.add("dock");
-    greet.style.display = "none";
-    controls.style.display = "none";
-    panel.style.display = "none";
+/* ---------------------------
+  GENERATE BLUEPRINT
+----------------------------*/
+function generate(isRegen=false){
+  if(!isRegen){
+    orb.classList.add('dock');
+    greet.style.display='none';
+    controls.style.display='none';
+    panel.style.display='none';
+    document.body.classList.remove('panel-open');
   }
 
-  blueprint.style.display = "block";
-  toolbar.style.display = "flex";
+  blueprint.style.display='block';
+  toolbar.style.display='flex';
   clearSVG();
 
-  const L = parseFloat(lenFt.value);
-  const W = parseFloat(widFt.value);
-  const vibe = vibeSelect.value;
-  const budget = budgetSelect.value;
+  // Read inputs
+  const L = parseFloat(lenFt.value||40);
+  const W = parseFloat(widFt.value||28);
+  const vibe = vibeSel.value;
+  const budget = budgetSel.value;
 
   const want = {
     pool: f_pool.checked,
-    zen: f_zen.checked,
+    zen:  f_zen.checked,
     deck: f_deck.checked,
     perg: f_perg.checked,
     path: f_path.checked,
@@ -483,162 +423,243 @@ function generate(isRegen = false){
     beds: f_beds.checked
   };
 
-  const area = L * W;
-  const auto = Object.values(want).every(v => !v);
+  // Colors for features
+  const COL = {
+    pool: c_pool.value,
+    zen:  c_zen.value,
+    path: c_path.value,
+    deck: c_deck.value,
+    perg: c_perg.value,
+    fire: c_fire.value,
+    beds: c_beds.value
+  };
 
-  if (auto){
-    want.deck = true;
-    want.path = true;
-    want.beds = true;
-    if(Math.random() < 0.5) want.perg = true;
-    if(Math.random() < 0.45) want.pool = true;
-    if(Math.random() < 0.4) want.zen = true;
-    if(!want.pool && Math.random() < 0.25) want.fire = true;
+  const area = L*W;
+  const auto = Object.values(want).every(v=>!v);
+  const small = area < 500, large = area > 900;
+  if(auto){
+    want.deck = true; want.path = true; want.beds = true;
+    if(!small && Math.random()<0.55) want.perg = true;
+    if(!small && Math.random()<0.45) want.pool = true;
+    if(Math.random()<0.35 || vibe==='zen') want.zen = true;
+    if(Math.random()<0.25 && !want.pool) want.fire = true;
   }
 
+  // Bounds
   drawBounds();
+
+  // Zones
+  const zones = [
+    {x:60, y:140, w:340, h:560},
+    {x:430,y:140, w:340, h:560},
+    {x:820,y:140, w:320, h:560}
+  ];
 
   let delay = 0;
 
-  if (want.deck){
-    drawDeck(460, 120, 280, 160, delay += 80);
-    if (want.perg) drawPergola(480, 140, 240, 120, delay += 80);
+  // Deck at top middle
+  if(want.deck){
+    const dw = large? 340 : small? 220 : 280;
+    const dh = large? 180 : small? 140 : 160;
+    const x = (1200-dw)/2, y = 120;
+    drawDeck(x,y,dw,dh, hexToRgba(COL.deck, 0.18), COL.deck, delay+=80);
+    if(want.perg){
+      drawPergola(x+20,y+20,dw-40,dh-40, hexToRgba(COL.perg, 0.08), COL.perg, delay+=80);
+    }
   }
 
-  if (want.pool) drawPool(240, 420, 150, 120, delay += 100);
-  if (want.zen) drawZenGarden(860, 200, 260, 440, delay += 100);
-  if (want.path) drawPath([{x:600,y:120},{x:600,y:300},{x:600,y:640}], delay += 60);
-  if (want.fire) drawFirePit(600, 520, delay += 60);
-  if (want.beds) drawBeds(delay += 60);
+  // Choose sides for pool/zen
+  const sideA = Math.random()<0.5 ? zones[0] : zones[2];
+  const sideB = sideA===zones[0] ? zones[2] : zones[0];
 
-  labelText(`Estimated yard: ${Math.round(area)} sq ft  •  Vibe: ${vibe}  •  Budget: ${budget}`, 20, 780);
+  if(want.pool){
+    const r = large? 150 : small? 90 : 120;
+    drawPool(sideA.x+sideA.w/2, sideA.y+sideA.h/2, r*1.2, r, hexToRgba(COL.pool, 0.20), COL.pool, delay+=100);
+  }
+  if(want.zen){
+    drawZenGarden(sideB.x+20, sideB.y+40, sideB.w-40, sideB.h-100, hexToRgba(COL.zen, 0.12), COL.zen, delay+=100);
+  }
+  if(want.path){
+    drawPath([{x:600,y:120},{x:600,y:300},{x:600,y:640}], hexToRgba(COL.path, 0.20), COL.path, delay+=60);
+  }
+  if(want.fire){
+    drawFirePit(600,520, hexToRgba(COL.fire, 0.18), COL.fire, delay+=60);
+  }
+  if(want.beds){
+    drawBeds(hexToRgba(COL.beds, 0.15), COL.beds, delay+=60);
+  }
+
+  // Footer note
+  labelText(
+    "Estimated yard: "+Math.round(area)+" sq ft  •  Vibe: "+(vibe==='auto'?'auto':vibe)+"  •  Budget: "+(budget==='auto'?'auto':budget),
+    20, 780
+  );
 }
 
-/* -------------------------------------------
-   SHAPES
---------------------------------------------*/
+/* ---------------------------
+  DRAW HELPERS
+----------------------------*/
 function drawBounds(){
-  const rect = add(elem("rect",{x:20,y:20,width:1160,height:760,fill:"none",stroke:"#67e8f9","stroke-width":2}));
-  const house = add(elem("line",{x1:20,y1:110,x2:1180,y2:110,stroke:"#67e8f9","stroke-width":2,"stroke-dasharray":"8 8"}));
-  labelText("House", 30, 102);
+  const stroke = '#67e8f9';
+  const border = add(elem('rect',{x:20,y:20,width:1160,height:760,fill:'none',stroke, 'stroke-width':2}));
+  const house  = add(elem('line',{x1:20,y1:110,x2:1180,y2:110, stroke, 'stroke-width':2, 'stroke-dasharray':'8 8'}));
+  labelText('House', 30, 102);
+  border.classList.add('fall'); house.classList.add('fall');
 }
 
-function drawDeck(x,y,w,h,d){
-  const g = add(elem("g"));
-  g.appendChild(elem("rect",{x,y,width:w,height:h,fill:"rgba(103,232,249,0.08)",stroke:"#67e8f9","stroke-width":2}));
-  g.appendChild(textAt("DECK",x+w/2-16,y+h/2));
-}
-
-function drawPergola(x,y,w,h,d){
-  const g = add(elem("g"));
-  g.appendChild(elem("rect",{x,y,width:w,height:h,fill:"none",stroke:"#67e8f9","stroke-dasharray":"6 6","stroke-width":2}));
-  g.appendChild(textAt("PERGOLA",x+w/2-30,y+h/2));
-}
-
-function drawPool(cx,cy,rx,ry,d){
-  const g = add(elem("g"));
-  g.appendChild(elem("ellipse",{cx,cy,rx,ry,fill:"rgba(103,232,249,0.13)",stroke:"#67e8f9","stroke-width":3}));
-  g.appendChild(textAt("POOL",cx-18,cy));
-}
-
-function drawZenGarden(x,y,w,h,d){
-  const g = add(elem("g"));
-  g.appendChild(elem("rect",{x,y,width:w,height:h,rx:16,ry:16,fill:"rgba(103,232,249,0.07)",stroke:"#67e8f9","stroke-width":2}));
-  g.appendChild(textAt("ZEN GARDEN",x+w/2-40,y+h/2));
-}
-
-function drawPath(points,d){
-  const g = add(elem("g"));
-  for(let i=1;i<points.length;i++){
-    const b = points[i];
-    g.appendChild(elem("rect",{x:b.x-16,y:b.y-10,width:32,height:20,rx:6,ry:6,fill:"rgba(103,232,249,0.08)",stroke:"#67e8f9"}));
+function drawDeck(x,y,w,h,fillColor, strokeColor, delay){
+  const g = add(elem('g')); setTimeout(()=>g.classList.add('fall'), delay);
+  g.appendChild(elem('rect',{x,y,width:w,height:h, fill:fillColor, stroke:'#67e8f9','stroke-width':2}));
+  // hatch
+  for(let i=x+8;i<x+w;i+=14){
+    g.appendChild(elem('line',{x1:i,y1:y+4,x2:i,y2:y+h-4, stroke:strokeColor, 'stroke-opacity':.22, 'stroke-width':1}));
   }
-  g.appendChild(textAt("PATH",points[1].x-16,points[1].y+28));
+  g.appendChild(textAt('DECK', x+w/2-16, y+h/2));
 }
 
-function drawFirePit(cx,cy,delay){
-  const g = add(elem("g"));
-  g.appendChild(elem("circle",{cx,cy,r:36,fill:"none",stroke:"#67e8f9","stroke-width":2}));
-  g.appendChild(textAt("FIRE",cx-14,cy+4));
+function drawPergola(x,y,w,h,fillColor, strokeColor, delay){
+  const g = add(elem('g')); setTimeout(()=>g.classList.add('fall'), delay);
+  g.appendChild(elem('rect',{x,y,width:w,height:h, fill:'none', stroke:strokeColor, 'stroke-width':2, 'stroke-dasharray':'6 6'}));
+  for(let i=y+12;i<y+h;i+=18){
+    g.appendChild(elem('line',{x1:x+6,y1:i,x2:x+w-6,y2:i, stroke:strokeColor, 'stroke-opacity':.55, 'stroke-width':1}));
+  }
+  // posts
+  const posts = [
+    {cx:x+14,cy:y+14},{cx:x+w-14,cy:y+14},
+    {cx:x+14,cy:y+h-14},{cx:x+w-14,cy:y+h-14}
+  ];
+  posts.forEach(p=>g.appendChild(elem('circle',{cx:p.cx,cy:p.cy,r:5,fill:strokeColor, 'fill-opacity':.85})));
+  g.appendChild(textAt('PERGOLA', x+w/2-26, y+h/2));
 }
 
-function drawBeds(d){
-  const g = add(elem("g"));
-  g.appendChild(elem("rect",{x:26,y:140,width:30,height:560,fill:"rgba(103,232,249,0.08)",stroke:"#67e8f9","stroke-dasharray":"3 6"}));
-  g.appendChild(elem("rect",{x:1144,y:140,width:30,height:560,fill:"rgba(103,232,249,0.08)",stroke:"#67e8f9","stroke-dasharray":"3 6"}));
-  g.appendChild(textAt("PLANTERS",560,736));
+function drawPool(cx,cy,rx,ry,fillColor, strokeColor, delay){
+  const g = add(elem('g')); setTimeout(()=>g.classList.add('fall'), delay);
+  g.appendChild(elem('ellipse',{cx,cy,rx,ry, fill:fillColor, stroke:'#67e8f9', 'stroke-width':3}));
+  for(let i=0;i<5;i++){
+    const rxi = rx - i*18, ryi = ry - i*10;
+    if(rxi>0 && ryi>0){
+      g.appendChild(elem('ellipse',{cx,cy,rx:rxi,ry:ryi, fill:'none', stroke:strokeColor, 'stroke-opacity':.45, 'stroke-dasharray':'2 10'}));
+    }
+  }
+  g.appendChild(textAt('POOL', cx-18, cy));
 }
 
-/* -------------------------------------------
-   EXPORT SVG
---------------------------------------------*/
+function drawZenGarden(x,y,w,h,fillColor, strokeColor, delay){
+  const g = add(elem('g')); setTimeout(()=>g.classList.add('fall'), delay);
+  g.appendChild(elem('rect',{x,y,width:w,height:h, rx:18, ry:18, fill:fillColor, stroke:'#67e8f9', 'stroke-width':2}));
+  for(let i=y+14;i<y+h-10;i+=16){
+    g.appendChild(elem('path',{d:`M ${x+10} ${i} Q ${x+w/2} ${i-6} ${x+w-10} ${i}`, fill:'none', stroke:strokeColor, 'stroke-opacity':.6}));
+  }
+  // stones
+  for(let i=0;i<6;i++){
+    const cx = x + 20 + Math.random()*(w-40);
+    const cy = y + 20 + Math.random()*(h-40);
+    g.appendChild(elem('ellipse',{cx,cy,rx:8+Math.random()*10,ry:6+Math.random()*8, fill:strokeColor, 'fill-opacity':.85}));
+  }
+  g.appendChild(textAt('ZEN GARDEN', x+w/2-40, y+h/2));
+}
+
+function drawPath(points, fillColor, strokeColor, delay){
+  const g = add(elem('g')); setTimeout(()=>g.classList.add('fall'), delay);
+  for(let i=1;i<points.length;i++){
+    const a=points[i-1], b=points[i];
+    const steps = Math.max(6, Math.hypot(b.x-a.x, b.y-a.y)/50);
+    for(let s=0;s<=steps;s++){
+      const t=s/steps;
+      const x=a.x+(b.x-a.x)*t, y=a.y+(b.y-a.y)*t;
+      g.appendChild(elem('rect',{x:x-16,y:y-10,width:32,height:20, rx:6, ry:6, fill:fillColor, stroke:strokeColor, 'stroke-opacity':.8, 'stroke-width':1}));
+    }
+  }
+  g.appendChild(textAt('PATH', points[1].x-14, points[1].y+28));
+}
+
+function drawFirePit(cx,cy,fillColor, strokeColor, delay){
+  const g = add(elem('g')); setTimeout(()=>g.classList.add('fall'), delay);
+  g.appendChild(elem('circle',{cx,cy,r:36, fill:'none', stroke:'#67e8f9', 'stroke-width':2}));
+  g.appendChild(elem('circle',{cx,cy,r:18, fill:fillColor, stroke:strokeColor, 'stroke-dasharray':'4 6'}));
+  g.appendChild(textAt('FIRE', cx-14, cy+4));
+  for(let a=0;a<360;a+=45){
+    const x=cx+Math.cos(a*Math.PI/180)*70, y=cy+Math.sin(a*Math.PI/180)*70;
+    g.appendChild(elem('rect',{x:x-18,y:y-8,width:36,height:16, rx:6, ry:6, fill:'rgba(255,255,255,0.04)', stroke:'#67e8f9', 'stroke-width':1}));
+  }
+}
+
+function drawBeds(fillColor, strokeColor, delay){
+  const g = add(elem('g')); setTimeout(()=>g.classList.add('fall'), delay);
+  const beds = [
+    {x:26,y:140,w:30,h:560},
+    {x:1144,y:140,w:30,h:560},
+    {x:200,y:720,w:800,h:40}
+  ];
+  beds.forEach(b=>{
+    g.appendChild(elem('rect',{x:b.x,y:b.y,width:b.w,height:b.h, fill:fillColor, stroke:'#67e8f9', 'stroke-dasharray':'3 6'}));
+    for(let i=b.x+6;i<b.x+b.w-6;i+=12){
+      g.appendChild(elem('line',{x1:i,y1:b.y+6,x2:i,y2:b.y+b.h-6, stroke:strokeColor, 'stroke-opacity':.25, 'stroke-width':1}));
+    }
+  });
+  g.appendChild(textAt('PLANTERS', 560, 736));
+}
+
+/* ---------------------------
+  EXPORT SVG
+----------------------------*/
 function exportSVG(){
-  const blob = new Blob([svg.outerHTML], {type:"image/svg+xml"});
-  const a = document.createElement("a");
+  const blob = new Blob([svg.outerHTML], {type:'image/svg+xml'});
+  const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = "backyard_blueprint.svg";
+  a.download = 'backyard_blueprint.svg';
   a.click();
 }
 
-/* ============================================================
-     3D CLICK + DRAG SYSTEM (Option A + B combined)
-============================================================ */
-let active3D = null;
-let isDragging = false;
-let dragStart = { x:0, y:0 };
-let lastTransform = { x:0, y:0 };
+/* ---------------------------
+  3D CLICK + DRAG (A+B)
+----------------------------*/
+let active3D=null, isDragging=false, dragStart={x:0,y:0}, lastTransform={x:0,y:0};
 
-svg.addEventListener("click", e => {
-  const g = e.target.closest("g");
-  if (!g) return;
+svg.addEventListener('click', e=>{
+  const g = e.target.closest('g');
+  if(!g) return;
 
-  if (active3D){
-    active3D.classList.remove("floating3D");
-    active3D.style.transform = "";
+  if(active3D){
+    active3D.classList.remove('floating3D');
+    active3D.style.transform='';
   }
-
   active3D = g;
-  g.classList.add("floating3D");
-
-  /* Combined A + B effect */
-  g.style.transform =
-    "perspective(900px) rotateX(18deg) rotateY(6deg) scale(1.12)";
-
-  const t = g.getAttribute("data-t") || "0,0";
-  const [tx, ty] = t.split(",").map(Number);
-  lastTransform = { x: tx, y: ty };
+  g.classList.add('floating3D');
+  g.style.transform = 'perspective(900px) rotateX(18deg) rotateY(6deg) scale(1.12)';
+  const t = g.getAttribute('data-t')||'0,0';
+  const [tx,ty] = t.split(',').map(Number);
+  lastTransform = {x:tx,y:ty};
 });
 
-svg.addEventListener("mousedown", e => {
-  if (!active3D) return;
-  isDragging = true;
-
+svg.addEventListener('mousedown', e=>{
+  if(!active3D) return;
+  isDragging=true;
   const pt = svgPoint(e);
   dragStart.x = pt.x - lastTransform.x;
   dragStart.y = pt.y - lastTransform.y;
 });
-
-svg.addEventListener("mousemove", e => {
-  if (!isDragging || !active3D) return;
-
+svg.addEventListener('mousemove', e=>{
+  if(!isDragging || !active3D) return;
   const pt = svgPoint(e);
-  const x = pt.x - dragStart.x;
-  const y = pt.y - dragStart.y;
-
-  lastTransform = { x, y };
-  active3D.setAttribute("transform", `translate(${x},${y})`);
-  active3D.setAttribute("data-t", `${x},${y}`);
+  const x = pt.x - dragStart.x, y = pt.y - dragStart.y;
+  lastTransform = {x,y};
+  active3D.setAttribute('transform',`translate(${x},${y})`);
+  active3D.setAttribute('data-t',`${x},${y}`);
 });
-
-svg.addEventListener("mouseup", () => isDragging = false);
-svg.addEventListener("mouseleave", () => isDragging = false);
+svg.addEventListener('mouseup', ()=>isDragging=false);
+svg.addEventListener('mouseleave', ()=>isDragging=false);
 
 function svgPoint(evt){
-  const p = svg.createSVGPoint();
-  p.x = evt.clientX;
-  p.y = evt.clientY;
+  const p = svg.createSVGPoint(); p.x = evt.clientX; p.y = evt.clientY;
   return p.matrixTransform(svg.getScreenCTM().inverse());
 }
+
+/* ---------------------------
+  QUICK GENERATE HOOK
+----------------------------*/
+document.getElementById('quick').addEventListener('click', ()=>generate());
+document.getElementById('generate').addEventListener('click', ()=>generate());
 
 </script>
 </body>
