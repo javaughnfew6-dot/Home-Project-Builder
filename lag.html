@@ -1,0 +1,338 @@
+<!-- ADD: Feature Tray (Tap a feature, then click on blueprint to place) -->
+<div id="tray" class="tray" style="display:none;">
+  <div class="trayTitle">Add Items</div>
+  <div class="trayBtns">
+    <button class="btn" data-place="pool">🏊 Pool</button>
+    <button class="btn" data-place="zen">🪨 Zen</button>
+    <button class="btn" data-place="path">🧱 Path</button>
+    <button class="btn" data-place="deck">🪵 Deck</button>
+    <button class="btn" data-place="perg">🧱 Pergola</button>
+    <button class="btn" data-place="fire">🔥 Fire Pit</button>
+    <button class="btn" data-place="beds">🌿 Beds</button>
+    <button id="cancelPlace" class="btn">✖ Cancel</button>
+  </div>
+  <div class="small">Tip: Tap a feature → click on blueprint to place a hologram.</div>
+</div>
+/* ADD: Feature Tray UI */
+.tray{
+  position:absolute;
+  left:14px;
+  bottom:14px;
+  z-index:13;
+  width:420px;
+  max-width:92vw;
+  background:#0b1533cc;
+  border:1px solid #1e2a4c;
+  border-radius:12px;
+  padding:10px;
+  backdrop-filter: blur(7px);
+}
+.trayTitle{
+  font-weight:800;
+  margin-bottom:8px;
+  color:#dbe9ff;
+}
+.trayBtns{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-bottom:6px;
+}
+
+/* ADD: Hologram effect for SVG groups */
+@keyframes holoPulse{
+  0%,100% { filter: drop-shadow(0 0 10px rgba(103,232,249,.20)) drop-shadow(0 0 22px rgba(96,165,250,.18)); }
+  50%     { filter: drop-shadow(0 0 16px rgba(103,232,249,.55)) drop-shadow(0 0 35px rgba(96,165,250,.35)); }
+}
+@keyframes holoDash {
+  to { stroke-dashoffset: -60; }
+}
+g.holoActive *{
+  animation: holoDash 1.2s linear infinite;
+  stroke-dasharray: 10 10;
+}
+g.holoActive{
+  animation: holoPulse .9s ease-in-out infinite;
+  opacity: 0.95;
+}
+/* ============================================================
+   HOLOGRAPHIC PLACEMENT MODE + DRAG + OPTIONAL ROTATE
+   - Tap feature in tray => ghost hologram follows pointer
+   - Tap blueprint => places a real item (still draggable)
+   - Hover/click => hologram glow effect
+   - Mouse wheel => rotate selected item (optional)
+============================================================ */
+
+const tray = document.getElementById("tray");
+const cancelPlaceBtn = document.getElementById("cancelPlace");
+
+let placeMode = null;     // "pool" | "zen" | "path" ...
+let ghost = null;         // hologram preview group
+let activeItem = null;    // currently selected group
+let dragging = false;
+let dragBase = {x:0,y:0};
+let itemPos = {x:0,y:0};
+let itemRot = 0;          // degrees
+
+// Show tray once blueprint is generated
+const _oldGenerate = generate;
+generate = function(isRegen=false){
+  _oldGenerate(isRegen);
+  tray.style.display = "block";
+};
+
+/* ---------- Helpers ---------- */
+function svgPoint(evt){
+  const p = svg.createSVGPoint();
+  p.x = evt.clientX;
+  p.y = evt.clientY;
+  return p.matrixTransform(svg.getScreenCTM().inverse());
+}
+
+function setTransform(g, x, y, rotDeg){
+  // store so drag/rotate stays consistent
+  g.dataset.tx = x;
+  g.dataset.ty = y;
+  g.dataset.rot = rotDeg;
+
+  // rotate around its own center (approx via bbox)
+  const bb = g.getBBox();
+  const cx = bb.x + bb.width/2;
+  const cy = bb.y + bb.height/2;
+
+  g.setAttribute("transform", `translate(${x},${y}) rotate(${rotDeg} ${cx} ${cy})`);
+}
+
+function makeHolo(g, on=true){
+  if(on) g.classList.add("holoActive");
+  else g.classList.remove("holoActive");
+}
+
+function clearGhost(){
+  if(ghost && ghost.parentNode) ghost.parentNode.removeChild(ghost);
+  ghost = null;
+}
+
+function selectItem(g){
+  if(activeItem) activeItem.classList.remove("floating3D");
+  activeItem = g;
+  if(!activeItem) return;
+
+  // Combined A + B: 3D tilt + highlight
+  activeItem.classList.add("floating3D");
+  activeItem.style.transform = "perspective(900px) rotateX(18deg) rotateY(6deg) scale(1.12)";
+
+  // hologram highlight too (looks sick)
+  makeHolo(activeItem, true);
+  setTimeout(()=> makeHolo(activeItem, false), 900);
+}
+
+/* ---------- Build new features on-demand ---------- */
+/* IMPORTANT: This makes new items using your existing drawing functions,
+   but as a single group you can move/rotate later. */
+function createFeature(type){
+  const g = elem("g", {"data-type": type});
+  // Default sizes/positions are drawn around (0,0) region, then we translate later.
+  const stroke = "#67e8f9";
+
+  // Use your color pickers if they exist (fallbacks if not)
+  const color = (id, fallback) => document.getElementById(id)?.value || fallback;
+  const fill = (hex, a) => hexToRgba(hex, a);
+
+  const COL = {
+    pool: color("c_pool", "#60A5FA"),
+    zen:  color("c_zen",  "#22D3EE"),
+    path: color("c_path", "#93C5FD"),
+    deck: color("c_deck", "#A78BFA"),
+    perg: color("c_perg", "#7DD3FC"),
+    fire: color("c_fire", "#F59E0B"),
+    beds: color("c_beds", "#34D399"),
+  };
+
+  if(type === "pool"){
+    // pool centered at (0,0) -> we draw around a local center
+    const cx=0, cy=0, rx=140, ry=100;
+    g.appendChild(elem("ellipse",{cx,cy,rx,ry, fill:fill(COL.pool,.20), stroke, "stroke-width":3}));
+    for(let i=0;i<4;i++){
+      g.appendChild(elem("ellipse",{cx,cy,rx:rx-i*18,ry:ry-i*10,fill:"none",stroke:COL.pool,"stroke-opacity":.45,"stroke-dasharray":"2 10"}));
+    }
+    g.appendChild(textAt("POOL", cx-18, cy));
+  }
+
+  if(type === "zen"){
+    const x=-140, y=-180, w=280, h=360;
+    g.appendChild(elem("rect",{x,y,width:w,height:h,rx:18,ry:18, fill:fill(COL.zen,.12), stroke, "stroke-width":2}));
+    for(let i=y+14;i<y+h-10;i+=16){
+      g.appendChild(elem("path",{d:`M ${x+10} ${i} Q ${x+w/2} ${i-6} ${x+w-10} ${i}`, fill:"none", stroke:COL.zen, "stroke-opacity":.6}));
+    }
+    for(let i=0;i<6;i++){
+      const cx = x + 20 + Math.random()*(w-40);
+      const cy = y + 20 + Math.random()*(h-40);
+      g.appendChild(elem("ellipse",{cx,cy,rx:8+Math.random()*10,ry:6+Math.random()*8, fill:COL.zen, "fill-opacity":.85}));
+    }
+    g.appendChild(textAt("ZEN", -18, 0));
+  }
+
+  if(type === "path"){
+    // a little 3-paver chunk, you can place multiple
+    const pavers = [{x:-40,y:-10},{x:0,y:-10},{x:40,y:-10},{x:-20,y:20},{x:20,y:20}];
+    pavers.forEach(p=>{
+      g.appendChild(elem("rect",{x:p.x,y:p.y,width:32,height:20,rx:6,ry:6, fill:fill(COL.path,.20), stroke:COL.path, "stroke-opacity":.9, "stroke-width":1}));
+    });
+    g.appendChild(textAt("PATH", -18, 52));
+  }
+
+  if(type === "deck"){
+    const x=-160, y=-90, w=320, h=180;
+    g.appendChild(elem("rect",{x,y,width:w,height:h, fill:fill(COL.deck,.18), stroke, "stroke-width":2}));
+    for(let i=x+8;i<x+w;i+=14){
+      g.appendChild(elem("line",{x1:i,y1:y+4,x2:i,y2:y+h-4, stroke:COL.deck, "stroke-opacity":.22, "stroke-width":1}));
+    }
+    g.appendChild(textAt("DECK", -16, 0));
+  }
+
+  if(type === "perg"){
+    const x=-150, y=-80, w=300, h=160;
+    g.appendChild(elem("rect",{x,y,width:w,height:h, fill:"none", stroke:COL.perg, "stroke-width":2, "stroke-dasharray":"6 6"}));
+    for(let i=y+12;i<y+h;i+=18){
+      g.appendChild(elem("line",{x1:x+6,y1:i,x2:x+w-6,y2:i, stroke:COL.perg, "stroke-opacity":.55, "stroke-width":1}));
+    }
+    const posts = [{cx:x+14,cy:y+14},{cx:x+w-14,cy:y+14},{cx:x+14,cy:y+h-14},{cx:x+w-14,cy:y+h-14}];
+    posts.forEach(p=>g.appendChild(elem("circle",{cx:p.cx,cy:p.cy,r:5,fill:COL.perg,"fill-opacity":.85})));
+    g.appendChild(textAt("PERG", -16, 0));
+  }
+
+  if(type === "fire"){
+    const cx=0, cy=0;
+    g.appendChild(elem("circle",{cx,cy,r:36,fill:"none",stroke, "stroke-width":2}));
+    g.appendChild(elem("circle",{cx,cy,r:18,fill:fill(COL.fire,.18),stroke:COL.fire,"stroke-dasharray":"4 6"}));
+    g.appendChild(textAt("FIRE", -14, 54));
+  }
+
+  if(type === "beds"){
+    // small planter strip
+    const x=-160, y=-20, w=320, h=40;
+    g.appendChild(elem("rect",{x,y,width:w,height:h, fill:fill(COL.beds,.15), stroke, "stroke-dasharray":"3 6"}));
+    for(let i=x+6;i<x+w-6;i+=12){
+      g.appendChild(elem("line",{x1:i,y1:y+6,x2:i,y2:y+h-6, stroke:COL.beds, "stroke-opacity":.25, "stroke-width":1}));
+    }
+    g.appendChild(textAt("BEDS", -18, 62));
+  }
+
+  // Make it holographic by default when ghosting
+  return g;
+}
+
+/* ---------- Tray click = enter placement mode ---------- */
+tray.addEventListener("click", (e)=>{
+  const btn = e.target.closest("button[data-place]");
+  if(!btn) return;
+  placeMode = btn.dataset.place;
+
+  // create ghost hologram
+  clearGhost();
+  ghost = createFeature(placeMode);
+  ghost.style.opacity = "0.65";
+  makeHolo(ghost, true);
+  svg.appendChild(ghost);
+
+  // start with center
+  setTransform(ghost, 600, 400, 0);
+});
+
+cancelPlaceBtn.addEventListener("click", ()=>{
+  placeMode = null;
+  clearGhost();
+});
+
+/* ---------- Pointer move: ghost follows pointer ---------- */
+svg.addEventListener("pointermove", (e)=>{
+  if(placeMode && ghost){
+    const pt = svgPoint(e);
+    setTransform(ghost, pt.x, pt.y, 0);
+  }
+});
+
+/* ---------- Pointer down: place OR drag ---------- */
+svg.addEventListener("pointerdown", (e)=>{
+  const targetGroup = e.target.closest("g");
+
+  // If in placement mode => PLACE the item
+  if(placeMode && ghost){
+    e.preventDefault();
+
+    const pt = svgPoint(e);
+
+    // Create real item and place it
+    const real = createFeature(placeMode);
+    svg.appendChild(real);
+
+    setTransform(real, pt.x, pt.y, 0);
+    selectItem(real);
+
+    // Keep placement mode on so they can place multiple
+    // (If you want it to stop after one, set placeMode=null here)
+    // placeMode = null; clearGhost();
+
+    return;
+  }
+
+  // Otherwise: select + drag existing item
+  if(targetGroup){
+    selectItem(targetGroup);
+
+    // Drag start
+    dragging = true;
+    const pt = svgPoint(e);
+
+    const tx = parseFloat(targetGroup.dataset.tx || "0");
+    const ty = parseFloat(targetGroup.dataset.ty || "0");
+    const rot = parseFloat(targetGroup.dataset.rot || "0");
+    itemPos = {x:tx, y:ty};
+    itemRot = rot;
+
+    dragBase.x = pt.x - tx;
+    dragBase.y = pt.y - ty;
+
+    svg.setPointerCapture(e.pointerId);
+  }
+});
+
+/* ---------- Pointer move: drag ---------- */
+svg.addEventListener("pointermove", (e)=>{
+  if(!dragging || !activeItem) return;
+  const pt = svgPoint(e);
+  const x = pt.x - dragBase.x;
+  const y = pt.y - dragBase.y;
+  setTransform(activeItem, x, y, itemRot);
+});
+
+/* ---------- Pointer up: end drag ---------- */
+svg.addEventListener("pointerup", (e)=>{
+  dragging = false;
+  if(activeItem) activeItem.style.transform = "perspective(900px) rotateX(18deg) rotateY(6deg) scale(1.12)";
+});
+
+/* ---------- Optional: rotate selected item with wheel ---------- */
+svg.addEventListener("wheel", (e)=>{
+  if(!activeItem) return;
+  e.preventDefault();
+  const delta = Math.sign(e.deltaY);
+  itemRot += delta * 6; // rotation speed
+  const tx = parseFloat(activeItem.dataset.tx || "0");
+  const ty = parseFloat(activeItem.dataset.ty || "0");
+  setTransform(activeItem, tx, ty, itemRot);
+}, {passive:false});
+
+/* ---------- Bonus: hologram highlight on hover ---------- */
+svg.addEventListener("pointerover", (e)=>{
+  const g = e.target.closest("g");
+  if(!g) return;
+  makeHolo(g, true);
+});
+svg.addEventListener("pointerout", (e)=>{
+  const g = e.target.closest("g");
+  if(!g) return;
+  // Don't remove if it's the active item (keep it feeling selected)
+  if(g !== activeItem) makeHolo(g, false);
+});
