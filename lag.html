@@ -636,3 +636,441 @@ g[data-ghost="true"]{ pointer-events: none; }
     }catch{}
   }
 })();
+<!-- MATERIALS PANEL -->
+<div id="materialsPanel" class="materials" style="display:none;" role="region" aria-label="Materials needed">
+  <div class="matHeader">
+    <div class="matTitle">Materials</div>
+    <button id="exportCsv" class="btn btnSm" title="Export CSV">⤓ CSV</button>
+  </div>
+
+  <div class="matControls">
+    <label class="ctrlRow">
+      <span>Scale:</span>
+      <input id="scaleInput" type="number" step="0.01" value="0.10" />
+      <span class="unit">ft per SVG unit</span>
+    </label>
+
+    <details>
+      <summary>Assumptions (click to edit)</summary>
+      <div class="assumpGrid">
+        <label>Path paver size (in): <input id="paverIn" type="number" value="16"></label>
+        <label>Paver gap (in): <input id="paverGapIn" type="number" value="0.5"></label>
+        <label>Base depth (in): <input id="baseDepthIn" type="number" value="4"></label>
+        <label>Sand depth (in): <input id="sandDepthIn" type="number" value="1"></label>
+
+        <label>Deck board width (in): <input id="deckBoardIn" type="number" value="5.5"></label>
+        <label>Board gap (in): <input id="deckGapIn" type="number" value="0.125"></label>
+        <label>Joist spacing (in): <input id="joistSpacingIn" type="number" value="16"></label>
+        <label>Joist size (in): <input id="joistSizeIn" type="text" value="2x8"></label>
+
+        <label>Pergola post spacing (ft): <input id="pergPostFt" type="number" value="8"></label>
+        <label>Pergola post size (in): <input id="pergPostIn" type="text" value="6x6"></label>
+
+        <label>Bed soil depth (in): <input id="soilDepthIn" type="number" value="8"></label>
+        <label>Mulch depth (in): <input id="mulchDepthIn" type="number" value="3"></label>
+
+        <label>Fire block height (in): <input id="fireBlockHIn" type="number" value="4"></label>
+        <label>Fire block width (in): <input id="fireBlockWIn" type="number" value="8"></label>
+        <label>Fire block thickness (in): <input id="fireBlockTIn" type="number" value="3.5"></label>
+        <label>Fire pit diameter (in): <input id="firePitDIn" type="number" value="36"></label>
+
+        <label>Pool avg depth (ft): <input id="poolDepthFt" type="number" value="4.5"></label>
+        <label>Pool wall thickness (in): <input id="poolWallIn" type="number" value="6"></label>
+      </div>
+    </details>
+  </div>
+
+  <div class="matList" id="matList" aria-live="polite"></div>
+</div>
+.materials{
+  position:absolute;
+  right:14px;
+  bottom:14px;
+  z-index:13;
+  width:420px;
+  max-width:92vw;
+  background:#0b1533cc;
+  border:1px solid #1e2a4c;
+  border-radius:12px;
+  padding:10px;
+  backdrop-filter: blur(7px);
+  color:#dbe9ff;
+  font: 500 14px/1.3 system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial;
+}
+.matHeader{
+  display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;
+}
+.matTitle{ font-weight:800; }
+.matControls{ margin-bottom:8px; }
+.ctrlRow{ display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+.ctrlRow input{ width:90px; }
+.unit{ opacity:.8; }
+.assumpGrid{
+  display:grid; grid-template-columns: repeat(2, minmax(0,1fr));
+  gap:8px; margin-top:8px;
+}
+.assumpGrid label{ display:flex; justify-content:space-between; gap:8px; }
+.assumpGrid input{ width:92px; }
+
+.matList .group{
+  border-top:1px dashed #253359; padding-top:6px; margin-top:6px;
+}
+.matList .groupTitle{ font-weight:700; margin-bottom:4px; }
+.matList .row{ display:flex; justify-content:space-between; gap:10px; }
+.matList .row .name{ opacity:.95; }
+.matList .row .qty{ opacity:.95; }
+.matList .subtle{ opacity:.75; font-size:12px; }        
+(() => {
+  const panel = document.getElementById('materialsPanel');
+  const listEl = document.getElementById('matList');
+  const exportCsvBtn = document.getElementById('exportCsv');
+
+  // Inputs
+  const scaleInput     = document.getElementById('scaleInput');
+  const paverIn        = document.getElementById('paverIn');
+  const paverGapIn     = document.getElementById('paverGapIn');
+  const baseDepthIn    = document.getElementById('baseDepthIn');
+  const sandDepthIn    = document.getElementById('sandDepthIn');
+
+  const deckBoardIn    = document.getElementById('deckBoardIn');
+  const deckGapIn      = document.getElementById('deckGapIn');
+  const joistSpacingIn = document.getElementById('joistSpacingIn');
+  const joistSizeIn    = document.getElementById('joistSizeIn');
+
+  const pergPostFt     = document.getElementById('pergPostFt');
+  const pergPostIn     = document.getElementById('pergPostIn');
+
+  const soilDepthIn    = document.getElementById('soilDepthIn');
+  const mulchDepthIn   = document.getElementById('mulchDepthIn');
+
+  const fireBlockHIn   = document.getElementById('fireBlockHIn');
+  const fireBlockWIn   = document.getElementById('fireBlockWIn');
+  const fireBlockTIn   = document.getElementById('fireBlockTIn');
+  const firePitDIn     = document.getElementById('firePitDIn');
+
+  const poolDepthFt    = document.getElementById('poolDepthFt');
+  const poolWallIn     = document.getElementById('poolWallIn');
+
+  // Auto-detect SVG (same as placement script)
+  let svg = window.svg || document.querySelector('svg');
+  if(!svg){ console.warn("Materials: No <svg> found."); return; }
+
+  // Show panel when tray shows
+  const tray = document.getElementById("tray");
+  const showPanel = () => { panel.style.display = "block"; };
+  if (tray && tray.style.display !== "none") showPanel();
+  const mo = new MutationObserver(() => {
+    if (tray && tray.style.display !== "none") showPanel();
+  });
+  tray && mo.observe(tray, { attributes:true, attributeFilter:['style','class'] });
+
+  const ftPerUnit = () => Math.max(parseFloat(scaleInput.value || "0.1"), 0.0001);
+
+  // Helpers
+  const in2ft = v => (v/12);
+  const areaEllipse = (a,b) => Math.PI * a * b;
+  const perimEllipseRamanujan = (a,b) => {
+    const h = Math.pow(a-b,2)/Math.pow(a+b,2);
+    return Math.PI*(a+b)*(1 + (3*h)/(10+Math.sqrt(4-3*h)));
+  };
+
+  // Listen to any meaningful change
+  [
+    scaleInput, paverIn, paverGapIn, baseDepthIn, sandDepthIn,
+    deckBoardIn, deckGapIn, joistSpacingIn, joistSizeIn,
+    pergPostFt, pergPostIn, soilDepthIn, mulchDepthIn,
+    fireBlockHIn, fireBlockWIn, fireBlockTIn, firePitDIn,
+    poolDepthFt, poolWallIn
+  ].forEach(inp => inp?.addEventListener('input', recompute));
+
+  // Recompute when items are added/removed or attributes change
+  const svgObs = new MutationObserver(muts => {
+    for(const m of muts){
+      if(m.type === 'childList' || m.type === 'attributes'){
+        recompute();
+        break;
+      }
+    }
+  });
+  svgObs.observe(svg, { childList:true, subtree:true, attributes:true, attributeFilter:['transform','data-type','data-tx','data-ty','data-rot'] });
+
+  function getGroups(){
+    return Array.from(svg.querySelectorAll("g[data-type]:not([data-ghost='true'])"));
+  }
+
+  // Extract logical sizes from each group’s untransformed bbox (local size)
+  function sizeForGroup(g){
+    const bb = g.getBBox();
+    const scale = ftPerUnit();
+    return { wFt: bb.width*scale, hFt: bb.height*scale, bb }; // feet
+  }
+
+  // Compute per-feature materials (estimates)
+  function materialsForGroup(g){
+    const type = g.dataset.type;
+    const { wFt, hFt, bb } = sizeForGroup(g);
+    const mats = [];
+    const add = (name, qty, unit, note='') => mats.push({ name, qty, unit, note });
+
+    // Round helpers
+    const rnd = (v, p=2) => Math.round(v*10**p)/10**p;
+    const ceil = Math.ceil;
+
+    if(type === 'path'){
+      // Use pavers sized (paverIn) with gap (paverGapIn)
+      const paver = in2ft(parseFloat(paverIn.value));
+      const gap   = in2ft(parseFloat(paverGapIn.value));
+      const pitch = paver + gap;
+
+      const cols = Math.max(1, Math.floor(wFt / pitch));
+      const rows = Math.max(1, Math.floor(hFt / pitch));
+      const count = cols * rows;
+
+      const areaFt2 = wFt * hFt;
+      const baseDepthFt = in2ft(parseFloat(baseDepthIn.value));
+      const sandDepthFt = in2ft(parseFloat(sandDepthIn.value));
+      const baseVol = areaFt2 * baseDepthFt; // ft³
+      const sandVol = areaFt2 * sandDepthFt; // ft³
+
+      add('Concrete/stone pavers', count, 'pcs', `${rnd(paver*12)}" with ${rnd(gap*12)}" gaps`);
+      add('Compacted base (gravel)', rnd(baseVol/27), 'yd³', `${baseDepthIn.value}" depth`);
+      add('Leveling sand', rnd(sandVol/27), 'yd³', `${sandDepthIn.value}" depth`);
+      add('Edging', rnd(2*(wFt+hFt)), 'ft', 'Optional');
+    }
+
+    if(type === 'deck'){
+      // Treat rect as deck rectangle
+      const boardW = in2ft(parseFloat(deckBoardIn.value));
+      const boardGap = in2ft(parseFloat(deckGapIn.value));
+      const joistSpacing = in2ft(parseFloat(joistSpacingIn.value));
+      const joistSize = (joistSizeIn.value || '2x8').toUpperCase();
+
+      // Boards run along width; count along height
+      const boardPitch = boardW + boardGap;
+      const boardCount = Math.max(1, Math.floor(hFt / boardPitch));
+      add('Deck boards', boardCount, 'ea', `${rnd(wFt)} ft length, ${deckBoardIn.value}" width + ${deckGapIn.value}" gap`);
+
+      // Joists run along height; spacing across width
+      const joistCount = Math.max(2, Math.floor(wFt / joistSpacing) + 1);
+      add(`Joists (${joistSize})`, joistCount, 'ea', `${rnd(hFt)} ft length @ ${joistSpacingIn.value}" OC`);
+
+      // Rim joists / perimeter
+      add('Rim/ledger boards', 2, 'ea', `${rnd(hFt)} ft length (front/back)`);
+      add('Rim boards (sides)', 2, 'ea', `${rnd(wFt)} ft length (left/right)`);
+
+      // Posts estimate: grid every ~6–8 ft
+      const span = 6; // ft
+      const postCols = Math.max(2, Math.ceil(wFt / span));
+      const postRows = Math.max(2, Math.ceil(hFt / span));
+      add('Posts (4x4 or 6x6)', postCols*postRows, 'ea', `~${span} ft grid; adjust for beam layout`);
+
+      // Fasteners / hardware (rough lump sums)
+      add('Deck screws', boardCount * Math.ceil(wFt / 1.5) * 2, 'pcs', 'Approximation');
+      add('Joist hangers', joistCount*2, 'ea', 'Both ends');
+      add('Concrete for footings', rnd((postCols*postRows*0.6)), 'yd³', '~0.6 ft³ per footing typical');
+    }
+
+    if(type === 'perg'){
+      // Rect with posts in corners plus spacing grid
+      const postSpacingFt = parseFloat(pergPostFt.value);
+      const postSize = (pergPostIn.value || '6x6').toUpperCase();
+
+      const cols = Math.max(2, Math.ceil(wFt / postSpacingFt) + 1);
+      const rows = Math.max(2, Math.ceil(hFt / postSpacingFt) + 1);
+      const postCount = cols * rows;
+      add(`Posts (${postSize})`, postCount, 'ea', `${postSpacingFt} ft target spacing`);
+
+      // Beams along length & width
+      add('Beams', cols * 2 + rows * 2, 'ea', 'Top perimeter + interior rows/cols');
+      add('Rafters', Math.ceil(wFt/1.5), 'ea', '~18" spacing');
+      add('Anchors / footings', postCount, 'ea');
+      add('Hardware (brackets/bolts)', postCount*4, 'pcs', 'Approx.');
+    }
+
+    if(type === 'beds'){
+      // Rect area
+      const areaFt2 = wFt * hFt;
+      const soilDepthFt = in2ft(parseFloat(soilDepthIn.value));
+      const mulchDepthFt = in2ft(parseFloat(mulchDepthIn.value));
+      const soilVolYd3 = (areaFt2 * soilDepthFt)/27;
+      const mulchVolYd3 = (areaFt2 * mulchDepthFt)/27;
+
+      add('Topsoil/raised bed mix', rnd(soilVolYd3), 'yd³', `${soilDepthIn.value}" depth`);
+      add('Mulch', rnd(mulchVolYd3), 'yd³', `${mulchDepthIn.value}" depth`);
+      add('Edging', rnd(2*(wFt+hFt)), 'ft', 'Optional border');
+    }
+
+    if(type === 'fire'){
+      // We provided a 36" inner circle by default; let the inputs drive it
+      const dIn = parseFloat(firePitDIn.value);
+      const radiusFt = in2ft(dIn)/2;
+      const circumferenceFt = 2*Math.PI*radiusFt;
+      const blockWft = in2ft(parseFloat(fireBlockWIn.value));
+      const blockHft = in2ft(parseFloat(fireBlockHIn.value));
+      const blockTft = in2ft(parseFloat(fireBlockTIn.value));
+      const blocksPerCourse = Math.max(1, Math.round(circumferenceFt / blockWft));
+      const courseCount = Math.max(1, Math.round((in2ft(12)) / blockHft)); // ~12" wall height default
+      const totalBlocks = blocksPerCourse * courseCount;
+
+      add('Fire pit wall blocks', totalBlocks, 'pcs', `${blocksPerCourse}/course × ${courseCount} courses`);
+      add('Fire ring insert', 1, 'ea', `${dIn}" nominal`);
+      add('Gravel base', rnd((circumferenceFt*blockTft*in2ft(4))/27), 'yd³', `~4" depth under ring`);
+      add('Adhesive', courseCount, 'tubes', '1 tube per course (approx.)');
+    }
+
+    if(type === 'zen'){
+      // Treat as rectangular zen garden area
+      const areaFt2 = wFt * hFt;
+      add('Raking gravel/sand', rnd(areaFt2/3), 'tons', '1 ton covers ~300 ft² @ 2"'); // rough
+      add('Edging/timber frame', rnd(2*(wFt+hFt)), 'ft', 'Optional border');
+      add('Accent stones/boulders', 6, 'ea', 'As desired');
+      add('Weed barrier fabric', rnd(areaFt2), 'ft²', '');
+    }
+
+    if(type === 'pool'){
+      // Ellipse representing pool (rx,ry from bbox halves)
+      const a = (bb.width/2) * ftPerUnit();
+      const b = (bb.height/2) * ftPerUnit();
+      const surfaceArea = areaEllipse(a,b); // ft² water surface
+      const depthFt = Math.max(1, parseFloat(poolDepthFt.value));
+      const volumeFt3 = surfaceArea * depthFt;
+      const gallons = volumeFt3 * 7.48052;
+
+      // Perimeter for coping/walls
+      const perimeter = perimEllipseRamanujan(a,b);
+
+      // Walls (thickness)
+      const wallT = in2ft(parseFloat(poolWallIn.value));
+      const wallVolFt3 = perimeter * depthFt * wallT;
+
+      add('Excavation', Math.round(volumeFt3), 'ft³', `~${depthFt} ft avg depth`);
+      add('Pool water', Math.round(gallons), 'gal', 'Approximate');
+      add('Concrete (walls/floor)', Math.round((wallVolFt3 + surfaceArea*in2ft(6))/27), 'yd³', '6" slab floor + walls (very rough)');
+      add('Coping/edge', Math.round(perimeter), 'ft', 'Linear feet');
+      add('Rebar', Math.round(perimeter*2 + surfaceArea*0.5), 'ft', 'Very rough placeholder');
+      add('Plumbing kit & pump/filter', 1, 'set', 'Equipment package');
+    }
+
+    return mats;
+  }
+
+  function recompute(){
+    const groups = getGroups();
+    const byFeature = {};
+    const totals = {};
+
+    for(const g of groups){
+      const type = g.dataset.type;
+      const mats = materialsForGroup(g);
+      if(!byFeature[type]) byFeature[type] = [];
+      byFeature[type].push(mats);
+
+      // Accumulate global totals by material name+unit
+      for(const m of mats){
+        const key = `${m.name}__${m.unit}`;
+        totals[key] = totals[key] || { name:m.name, unit:m.unit, qty:0 };
+        totals[key].qty += Number(m.qty) || 0;
+      }
+    }
+
+    render(byFeature, totals);
+  }
+
+  function render(byFeature, totals){
+    const frag = document.createDocumentFragment();
+
+    // Overall totals
+    const totalsDiv = document.createElement('div');
+    totalsDiv.className = 'group';
+    const title = document.createElement('div');
+    title.className = 'groupTitle';
+    title.textContent = 'Total materials';
+    totalsDiv.appendChild(title);
+
+    Object.values(totals).forEach(t => {
+      const row = document.createElement('div');
+      row.className = 'row';
+      const name = document.createElement('div'); name.className = 'name'; name.textContent = t.name;
+      const qty  = document.createElement('div'); qty.className  = 'qty'; qty.textContent = `${fmt(t.qty)} ${t.unit}`;
+      row.appendChild(name); row.appendChild(qty);
+      totalsDiv.appendChild(row);
+    });
+    frag.appendChild(totalsDiv);
+
+    // Breakdown by feature type
+    for(const [type, arr] of Object.entries(byFeature)){
+      const groupDiv = document.createElement('div');
+      groupDiv.className = 'group';
+      const head = document.createElement('div');
+      head.className = 'groupTitle';
+      head.textContent = labelForType(type) + ` (${arr.length})`;
+      groupDiv.appendChild(head);
+
+      // Sum within this type
+      const typeTotals = {};
+      for(const mats of arr){
+        for(const m of mats){
+          const key = `${m.name}__${m.unit}`;
+          typeTotals[key] = typeTotals[key] || { name:m.name, unit:m.unit, qty:0, note:m.note };
+          typeTotals[key].qty += Number(m.qty) || 0;
+        }
+      }
+      Object.values(typeTotals).forEach(t => {
+        const row = document.createElement('div');
+        row.className = 'row';
+        const name = document.createElement('div'); name.className = 'name'; name.textContent = t.name;
+        const qty  = document.createElement('div'); qty.className  = 'qty'; qty.textContent = `${fmt(t.qty)} ${t.unit}`;
+        row.appendChild(name); row.appendChild(qty);
+        groupDiv.appendChild(row);
+        if(t.note){
+          const note = document.createElement('div');
+          note.className = 'subtle';
+          note.textContent = t.note;
+          groupDiv.appendChild(note);
+        }
+      });
+
+      frag.appendChild(groupDiv);
+    }
+
+    listEl.innerHTML = '';
+    listEl.appendChild(frag);
+  }
+
+  function labelForType(t){
+    return ({
+      pool:'Pool', zen:'Zen Garden', path:'Path', deck:'Deck',
+      perg:'Pergola', fire:'Fire Pit', beds:'Planting Beds'
+    })[t] || t;
+  }
+  function fmt(v){
+    // smart rounding for counts/lengths/volumes
+    if (Math.abs(v) >= 100) return Math.round(v);
+    if (Math.abs(v) >= 10) return Math.round(v*10)/10;
+    return Math.round(v*100)/100;
+  }
+
+  // CSV export
+  exportCsvBtn?.addEventListener('click', () => {
+    const groups = Array.from(svg.querySelectorAll("g[data-type]:not([data-ghost='true'])"));
+    const rows = [['Feature','Material','Qty','Unit','Note']];
+
+    for(const g of groups){
+      const type = labelForType(g.dataset.type);
+      const mats = materialsForGroup(g);
+      for(const m of mats){
+        rows.push([type, m.name, String(m.qty), m.unit, m.note || '']);
+      }
+    }
+    const csv = rows.map(r => r.map(x => `"${String(x).replaceAll('"','""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'materials.csv';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+
+  // Initial compute
+  recompute();
+})();
